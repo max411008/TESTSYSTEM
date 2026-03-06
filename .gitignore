@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+
+# Virtual env
+.venv/
+app/.venv/
+
+# Local caches
+.pycache/
+.DS_Store
+
+# Runtime data
+app/data/uploads/
+app/data/question_bank.json

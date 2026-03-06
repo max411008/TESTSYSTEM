@@ -1,0 +1,89 @@
+:root {
+  --bg: #f4f8fb;
+  --card: #ffffff;
+  --text: #1a2a33;
+  --primary: #0b7fab;
+  --danger: #b33232;
+  --ok: #1f7a43;
+  --muted: #5c6f78;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Noto Sans TC", "PingFang TC", sans-serif;
+  background: linear-gradient(135deg, #eef7ff, #f7fbf7);
+  color: var(--text);
+}
+
+.container {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 24px 16px 56px;
+}
+
+h1 {
+  margin-bottom: 20px;
+}
+
+.card {
+  background: var(--card);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+}
+
+button {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+button:hover {
+  opacity: 0.92;
+}
+
+button.danger {
+  background: var(--danger);
+  margin-left: 8px;
+}
+
+input[type="number"],
+input[type="file"] {
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
+.hidden {
+  display: none;
+}
+
+.hint {
+  color: var(--muted);
+  margin-top: 8px;
+}
+
+.question {
+  border: 1px solid #e8eef2;
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.result-ok {
+  color: var(--ok);
+  font-weight: 700;
+}
+
+.result-bad {
+  color: var(--danger);
+  font-weight: 700;
+}

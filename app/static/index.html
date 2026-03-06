@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>智慧題庫模擬考</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>智慧題庫模擬考系統</h1>
+
+      <section class="card">
+        <h2>1) 上傳題庫檔案</h2>
+        <p>支援 Word(.docx) / PDF(.pdf) / Excel(.xlsx/.xls) / TXT(.txt)</p>
+        <form id="upload-form">
+          <input id="file-input" type="file" accept=".pdf,.docx,.xlsx,.xls,.txt" required />
+          <button type="submit">上傳並抽題</button>
+        </form>
+        <div id="upload-result" class="hint"></div>
+      </section>
+
+      <section class="card">
+        <h2>2) 建立模擬考</h2>
+        <label for="exam-count">題數：</label>
+        <input id="exam-count" type="number" min="1" value="10" />
+        <button id="start-exam-btn">開始考試</button>
+        <button id="clear-bank-btn" class="danger">清空題庫</button>
+        <div id="bank-info" class="hint"></div>
+      </section>
+
+      <section id="exam-section" class="card hidden">
+        <h2>3) 作答區</h2>
+        <form id="exam-form"></form>
+        <button id="submit-exam-btn">交卷</button>
+      </section>
+
+      <section id="result-section" class="card hidden">
+        <h2>4) 成績與解析</h2>
+        <div id="score"></div>
+        <div id="result-list"></div>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
