@@ -309,6 +309,11 @@ function renderWrong() {
       <p class="hint">題號：${q.no || q.id} | 答案：${q.answer || "(未設定)"}</p>
     `;
 
+    const mark = document.createElement("span");
+    mark.className = "wrong-mark";
+    mark.textContent = "✘";
+    box.appendChild(mark);
+
     const removeBtn = document.createElement("button");
     removeBtn.type = "button";
     removeBtn.className = "danger";
