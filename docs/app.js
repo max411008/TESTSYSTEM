@@ -185,6 +185,61 @@ function extractGlobalAnswers(text) {
   return answerMap;
 }
 
+function parseCompactTableQuestions(rawText) {
+  const text = normalizeText(rawText).replace(/\n+/g, " ").replace(/\s{2,}/g, " ").trim();
+  if (!text) return [];
+
+  const records =
+    text.match(
+      /(?:^|\s)(\d{1,4})\s+[\s\S]*?\(A\)[\s\S]*?\(B\)[\s\S]*?(?=(?:\s\d{1,4}\s+[\s\S]*?\(A\))|$)/gi
+    ) || [];
+
+  const result = [];
+  for (const rec of records) {
+    const m = rec.match(/^\s*(\d{1,4})\s+([\s\S]+)$/);
+    if (!m) continue;
+    const qNo = m[1];
+    let content = m[2].trim();
+
+    content = content.replace(/^序號\s*課程名稱\s*題目\s*答案\s*/i, "").trim();
+    if (!/\(A\).+\(B\)/i.test(content)) continue;
+
+    const answerMatch = content.match(/[。.\s]([A-F1-9])\s*$/i);
+    const answer = answerMatch ? normalizeOptionKey(answerMatch[1]) : "";
+    if (answerMatch) {
+      content = content.slice(0, answerMatch.index).trim();
+    }
+
+    const optIter = [...content.matchAll(/\(([A-F1-9])\)/gi)];
+    if (optIter.length < 2) continue;
+
+    const stem = content.slice(0, optIter[0].index).trim(" ：:。;；");
+    if (!stem) continue;
+
+    const options = [];
+    for (let i = 0; i < optIter.length; i += 1) {
+      const key = normalizeOptionKey(optIter[i][1]);
+      const start = optIter[i].index + optIter[i][0].length;
+      const end = i + 1 < optIter.length ? optIter[i + 1].index : content.length;
+      const optText = content.slice(start, end).trim(" ，,。;；:：");
+      if (optText) options.push({ key, text: optText });
+    }
+
+    if (options.length >= 2) {
+      result.push({
+        id: randomId(),
+        no: qNo,
+        question: stem,
+        options,
+        answer,
+        explanation: "",
+      });
+    }
+  }
+
+  return result;
+}
+
 function parseQuestionBlocks(rawText) {
   const text = normalizeText(rawText);
   const blankBlocks = text
@@ -282,6 +337,10 @@ function parseQuestionBlocks(rawText) {
         explanation,
       });
     }
+  }
+
+  if (questions.length === 0) {
+    return parseCompactTableQuestions(rawText);
   }
 
   return questions;
