@@ -191,8 +191,38 @@ function extractGlobalAnswers(text) {
   return answerMap;
 }
 
+function cleanPdfNoise(text) {
+  return (text || "")
+    .replace(/第\s*\d+\s*頁\s*[，,、]?\s*共\s*\d+\s*頁/gi, " ")
+    .replace(/查\s*詢\s*清\s*除/gi, " ")
+    .replace(/查詢結果\s*序號\s*課程名稱\s*題目\s*答案/gi, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function extractAnswerFromTail(text) {
+  if (!text) return "";
+  const cleaned = cleanPdfNoise(text);
+
+  const explicit = [...cleaned.matchAll(/(?:答案|解答)\s*[:：]?\s*([A-F1-9Ａ-Ｆ０-９①②③④⑤⑥⑦⑧⑨])/gi)];
+  if (explicit.length > 0) {
+    return normalizeOptionKey(explicit[explicit.length - 1][1]);
+  }
+
+  const punct = [...cleaned.matchAll(/[。.!?）)]\s*([A-F1-9Ａ-Ｆ０-９①②③④⑤⑥⑦⑧⑨])(?=\s|$)/gi)];
+  if (punct.length > 0) {
+    return normalizeOptionKey(punct[punct.length - 1][1]);
+  }
+
+  const tail = [...cleaned.matchAll(/(?:^|\s)([A-F1-9Ａ-Ｆ０-９①②③④⑤⑥⑦⑧⑨])\s*$/gi)];
+  if (tail.length > 0) {
+    return normalizeOptionKey(tail[tail.length - 1][1]);
+  }
+  return "";
+}
+
 function parseCompactTableQuestions(rawText) {
-  const text = normalizeText(rawText).replace(/\n+/g, " ").replace(/\s{2,}/g, " ").trim();
+  const text = cleanPdfNoise(normalizeText(rawText).replace(/\n+/g, " ").replace(/\s{2,}/g, " ").trim());
   if (!text) return [];
 
   const records =
@@ -210,10 +240,12 @@ function parseCompactTableQuestions(rawText) {
     content = content.replace(/^序號\s*課程名稱\s*題目\s*答案\s*/i, "").trim();
     if (!/\(A\).+\(B\)/i.test(content)) continue;
 
-    const answerMatch = content.match(/(?:[。.!?]|\s|[)）])([A-F1-9Ａ-Ｆ０-９①②③④⑤⑥⑦⑧⑨])\s*$/i);
-    const answer = answerMatch ? normalizeOptionKey(answerMatch[1]) : "";
-    if (answerMatch) {
-      content = content.slice(0, answerMatch.index).trim();
+    let answer = extractAnswerFromTail(content);
+    if (answer) {
+      content = content
+        .replace(new RegExp(`[。.!?）)]\\s*${answer}\\s*$`, "i"), "")
+        .replace(new RegExp(`\\s${answer}\\s*$`, "i"), "")
+        .trim();
     }
 
     const optIter = [...content.matchAll(/\(([A-F1-9])\)/gi)];
@@ -366,6 +398,10 @@ function parseQuestionBlocks(rawText) {
       }
     }
 
+    if (!answer) {
+      answer = extractAnswerFromTail(block);
+    }
+
     if (options.length >= 2 && qTextParts.length > 0) {
       questions.push({
         id: randomId(),
@@ -386,8 +422,8 @@ function parseQuestionBlocks(rawText) {
   if (compact.length > 0) {
     const qWithAns = questions.filter((q) => q.answer).length;
     const cWithAns = compact.filter((q) => q.answer).length;
-    // Prefer compact parser when it clearly recovers more answers.
-    if (cWithAns > qWithAns * 2 && compact.length >= Math.floor(questions.length * 0.5)) {
+    // Prefer the parser that recovers more answers for table-like PDFs.
+    if (cWithAns > qWithAns && compact.length >= Math.floor(questions.length * 0.5)) {
       return compact;
     }
   }
