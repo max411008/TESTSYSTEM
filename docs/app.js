@@ -111,11 +111,24 @@ function randomId() {
 }
 
 function normalizeOptionKey(raw) {
+  const circledMap = {
+    "①": "1",
+    "②": "2",
+    "③": "3",
+    "④": "4",
+    "⑤": "5",
+    "⑥": "6",
+    "⑦": "7",
+    "⑧": "8",
+    "⑨": "9",
+  };
   const upper = (raw || "")
     .trim()
     .toUpperCase()
-    .replace(/[Ａ-Ｆ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 65248));
-  const match = upper.match(/[A-F]/);
+    .replace(/[Ａ-Ｚ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 65248))
+    .replace(/[０-９]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 65248))
+    .replace(/[①②③④⑤⑥⑦⑧⑨]/g, (ch) => circledMap[ch] || ch);
+  const match = upper.match(/[A-F]|[1-9]|[OX]|[TF]/);
   return match ? match[0] : upper.slice(0, 1);
 }
 
@@ -139,7 +152,8 @@ function extractGlobalAnswers(text) {
   );
   const source = answerSectionMatch ? answerSectionMatch[1] : text;
 
-  const pairRegex = /(?:^|\s)(\d{1,4})\s*[\.\)、:：-]?\s*\(?([A-F])\)?(?=\s|$)/gi;
+  const pairRegex =
+    /(?:^|\s)(\d{1,4})\s*[\.\)、:：-]?\s*[\(（]?([A-Fa-f1-9①②③④⑤⑥⑦⑧⑨Ａ-Ｆ０-９])[\)）]?(?=\s|$)/gi;
   let match;
   while ((match = pairRegex.exec(source)) !== null) {
     answerMap[match[1]] = normalizeOptionKey(match[2]);
@@ -169,10 +183,12 @@ function parseQuestionBlocks(rawText) {
       .filter(Boolean);
     const lines = [];
     for (const line of rawLines) {
-      const markerCount = (line.match(/[\(（]?[A-FＡ-Ｆ][\)）]?[\.\、:：-]/g) || []).length;
+      const markerCount = (
+        line.match(/[\(（]?[A-FＡ-Ｆ1-9０-９①②③④⑤⑥⑦⑧⑨][\)）]?[\.\、:：-]/g) || []
+      ).length;
       if (markerCount >= 2) {
         const expanded = line
-          .replace(/([^\s])\s+(?=[\(（]?[A-FＡ-Ｆ][\)）]?[\.\、:：-])/g, "$1\n")
+          .replace(/([^\s])\s+(?=[\(（]?[A-FＡ-Ｆ1-9０-９①②③④⑤⑥⑦⑧⑨][\)）]?[\.\、:：-])/g, "$1\n")
           .split("\n")
           .map((v) => v.trim())
           .filter(Boolean);
@@ -192,9 +208,13 @@ function parseQuestionBlocks(rawText) {
     let currentOptIdx = null;
 
     for (const line of lines) {
-      const ansMatch = line.match(/^(?:答案|解答|answer)\s*[:：]\s*[\(（]?([A-Fa-fＡ-Ｆ])[\)）]?/i);
+      const ansMatch = line.match(
+        /^(?:答案|解答|answer)\s*[:：]\s*[\(（]?([A-Fa-fＡ-Ｆ1-9０-９①②③④⑤⑥⑦⑧⑨])[\)）]?/i
+      );
       const expMatch = line.match(/^(?:解析|explanation)\s*[:：]\s*(.+)/i);
-      const optMatch = line.match(/^(?:[\(（])?([A-Fa-fＡ-Ｆ])(?:[\)）])?[\]\.、:：\s-]+(.+)$/);
+      const optMatch = line.match(
+        /^(?:[\(（])?([A-Fa-fＡ-Ｆ1-9０-９①②③④⑤⑥⑦⑧⑨])(?:[\)）])?[\]\.、:：\s-]+(.+)$/
+      );
 
       if (ansMatch) {
         answer = normalizeOptionKey(ansMatch[1]);
@@ -329,10 +349,11 @@ uploadForm.addEventListener("submit", async (e) => {
   if (!file) return;
 
   uploadResult.textContent = "上傳與解析中...";
+  let extractedText = "";
 
   try {
-    const text = await extractText(file);
-    const parsed = parseQuestionBlocks(text);
+    extractedText = await extractText(file);
+    const parsed = parseQuestionBlocks(extractedText);
     if (parsed.length === 0) {
       throw new Error("沒有抽出有效題目，請確認題目含選項（A/B/C/D）");
     }
@@ -346,7 +367,8 @@ uploadForm.addEventListener("submit", async (e) => {
     uploadResult.textContent = `成功新增 ${parsed.length} 題（有答案 ${withAnswer} 題，無答案 ${withoutAnswer} 題），總題數 ${bank.length} 題`;
     refreshBankInfo();
   } catch (err) {
-    uploadResult.textContent = `失敗：${err.message}`;
+    const preview = extractedText ? `；抽取文字預覽：${extractedText.slice(0, 120).replace(/\n/g, " ")}` : "";
+    uploadResult.textContent = `失敗：${err.message}${preview}`;
   }
 });
 
