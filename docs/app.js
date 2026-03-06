@@ -101,28 +101,80 @@ function randomId() {
 }
 
 function normalizeOptionKey(raw) {
-  const upper = (raw || "").trim().toUpperCase();
+  const upper = (raw || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[Ａ-Ｆ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 65248));
   const match = upper.match(/[A-F]/);
   return match ? match[0] : upper.slice(0, 1);
 }
 
+function normalizeText(rawText) {
+  return (rawText || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/[０-９]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 65248))
+    .replace(/[Ａ-Ｚ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 65248))
+    .replace(/[ａ-ｚ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 65248))
+    .replace(/（/g, "(")
+    .replace(/）/g, ")")
+    .replace(/．/g, ".")
+    .replace(/\n{3,}/g, "\n\n");
+}
+
+function extractGlobalAnswers(text) {
+  const answerMap = {};
+  const answerSectionMatch = text.match(
+    /(?:答案|解答|參考答案|answer\s*key|answers?)\s*[:：]?([\s\S]{0,5000})/i
+  );
+  const source = answerSectionMatch ? answerSectionMatch[1] : text;
+
+  const pairRegex = /(?:^|\s)(\d{1,4})\s*[\.\)、:：-]?\s*\(?([A-F])\)?(?=\s|$)/gi;
+  let match;
+  while ((match = pairRegex.exec(source)) !== null) {
+    answerMap[match[1]] = normalizeOptionKey(match[2]);
+  }
+  return answerMap;
+}
+
 function parseQuestionBlocks(rawText) {
-  const text = rawText.replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\n{3,}/g, "\n\n");
-  const blocks = text
+  const text = normalizeText(rawText);
+  const blankBlocks = text
     .split(/\n\s*\n/)
     .map((b) => b.trim())
     .filter(Boolean);
+  const numberedBlocks =
+    text.match(
+      /(?:^|\n)\s*(?:Q\s*)?\d{1,4}[\)\]\.、:：-][\s\S]*?(?=(?:\n\s*(?:Q\s*)?\d{1,4}[\)\]\.、:：-])|$)/gim
+    ) || [];
+  const blocks = numberedBlocks.length > blankBlocks.length ? numberedBlocks : blankBlocks;
 
   const questions = [];
+  const globalAnswers = extractGlobalAnswers(text);
 
   for (const block of blocks) {
-    const lines = block
+    const rawLines = block
       .split("\n")
       .map((ln) => ln.trim())
       .filter(Boolean);
+    const lines = [];
+    for (const line of rawLines) {
+      const markerCount = (line.match(/[\(（]?[A-FＡ-Ｆ][\)）]?[\.\、:：-]/g) || []).length;
+      if (markerCount >= 2) {
+        const expanded = line
+          .replace(/([^\s])\s+(?=[\(（]?[A-FＡ-Ｆ][\)）]?[\.\、:：-])/g, "$1\n")
+          .split("\n")
+          .map((v) => v.trim())
+          .filter(Boolean);
+        lines.push(...expanded);
+      } else {
+        lines.push(line);
+      }
+    }
 
     if (lines.length < 2) continue;
 
+    let qNo = "";
     const qTextParts = [];
     const options = [];
     let answer = "";
@@ -130,9 +182,9 @@ function parseQuestionBlocks(rawText) {
     let currentOptIdx = null;
 
     for (const line of lines) {
-      const ansMatch = line.match(/^(?:答案|answer)\s*[:：]\s*([A-Fa-f])/i);
+      const ansMatch = line.match(/^(?:答案|解答|answer)\s*[:：]\s*[\(（]?([A-Fa-fＡ-Ｆ])[\)）]?/i);
       const expMatch = line.match(/^(?:解析|explanation)\s*[:：]\s*(.+)/i);
-      const optMatch = line.match(/^([A-Fa-f])[\)\]\.、:：\s-]+(.+)$/);
+      const optMatch = line.match(/^(?:[\(（])?([A-Fa-fＡ-Ｆ])(?:[\)）])?[\]\.、:：\s-]+(.+)$/);
 
       if (ansMatch) {
         answer = normalizeOptionKey(ansMatch[1]);
@@ -155,14 +207,21 @@ function parseQuestionBlocks(rawText) {
       if (currentOptIdx !== null) {
         options[currentOptIdx].text += ` ${line}`;
       } else {
-        const clean = line.replace(/^(?:\d+|Q\d+|題\s*\d+)\s*[\)\]\.、:：-]?\s*/i, "");
+        const qNoMatch = line.match(/^(?:Q\s*)?(\d{1,4})\s*[\)\]\.、:：-]+\s*/i);
+        if (!qNo && qNoMatch) qNo = qNoMatch[1];
+        const clean = line.replace(/^(?:Q\s*\d+|\d+|題\s*\d+)\s*[\)\]\.、:：-]?\s*/i, "");
         qTextParts.push(clean);
       }
     }
 
-    if (options.length >= 2 && qTextParts.length > 0 && answer) {
+    if (!answer && qNo && globalAnswers[qNo]) {
+      answer = globalAnswers[qNo];
+    }
+
+    if (options.length >= 2 && qTextParts.length > 0) {
       questions.push({
         id: randomId(),
+        no: qNo,
         question: qTextParts.join(" ").trim(),
         options,
         answer,
@@ -182,8 +241,38 @@ async function readPdf(file) {
   for (let p = 1; p <= doc.numPages; p += 1) {
     const page = await doc.getPage(p);
     const content = await page.getTextContent();
-    const pageText = content.items.map((it) => it.str || "").join(" ");
-    parts.push(pageText);
+    const rows = content.items
+      .filter((it) => it.str && it.str.trim())
+      .map((it) => ({
+        text: it.str.trim(),
+        x: it.transform?.[4] || 0,
+        y: it.transform?.[5] || 0,
+      }))
+      .sort((a, b) => {
+        if (Math.abs(b.y - a.y) > 2) return b.y - a.y;
+        return a.x - b.x;
+      });
+
+    const lines = [];
+    let current = [];
+    let currentY = null;
+    for (const item of rows) {
+      if (currentY === null || Math.abs(item.y - currentY) <= 2) {
+        current.push(item);
+        currentY = currentY === null ? item.y : (currentY + item.y) / 2;
+      } else {
+        current.sort((a, b) => a.x - b.x);
+        lines.push(current.map((r) => r.text).join(" "));
+        current = [item];
+        currentY = item.y;
+      }
+    }
+    if (current.length > 0) {
+      current.sort((a, b) => a.x - b.x);
+      lines.push(current.map((r) => r.text).join(" "));
+    }
+
+    parts.push(lines.join("\n"));
   }
 
   return parts.join("\n");
@@ -235,14 +324,16 @@ uploadForm.addEventListener("submit", async (e) => {
     const text = await extractText(file);
     const parsed = parseQuestionBlocks(text);
     if (parsed.length === 0) {
-      throw new Error("沒有抽出有效題目，請確認有題幹、選項(A/B/...)與答案欄位");
+      throw new Error("沒有抽出有效題目，請確認題目含選項（A/B/C/D）");
     }
 
     const bank = loadBank();
     bank.push(...parsed);
     saveBank(bank);
 
-    uploadResult.textContent = `成功新增 ${parsed.length} 題，總題數 ${bank.length} 題`;
+    const withAnswer = parsed.filter((q) => q.answer).length;
+    const withoutAnswer = parsed.length - withAnswer;
+    uploadResult.textContent = `成功新增 ${parsed.length} 題（有答案 ${withAnswer} 題，無答案 ${withoutAnswer} 題），總題數 ${bank.length} 題`;
     refreshBankInfo();
   } catch (err) {
     uploadResult.textContent = `失敗：${err.message}`;
@@ -273,24 +364,29 @@ submitExamBtn.addEventListener("click", () => {
   });
 
   let correct = 0;
+  let scorableTotal = 0;
   const details = currentExamQuestions.map((q) => {
     const yourAnswer = normalizeOptionKey(answers[q.id] || "");
     const correctAnswer = normalizeOptionKey(q.answer || "");
-    const isCorrect = yourAnswer && yourAnswer === correctAnswer;
+    const isScorable = Boolean(correctAnswer);
+    if (isScorable) scorableTotal += 1;
+    const isCorrect = isScorable && yourAnswer && yourAnswer === correctAnswer;
     if (isCorrect) correct += 1;
 
     return {
       question: q.question,
       yourAnswer,
       correctAnswer,
+      isScorable,
       isCorrect,
       explanation: q.explanation || "",
     };
   });
 
   const total = currentExamQuestions.length;
-  const score = total ? Math.round((correct / total) * 10000) / 100 : 0;
-  renderResult({ score, correct, total, details });
+  const totalForScore = scorableTotal;
+  const finalScore = totalForScore ? Math.round((correct / totalForScore) * 10000) / 100 : 0;
+  renderResult({ score: finalScore, correct, total, totalForScore, details });
 
   const history = loadHistory();
   const answered = Object.keys(answers).length;
@@ -298,7 +394,7 @@ submitExamBtn.addEventListener("click", () => {
   history.push({
     attempt: history.length + 1,
     submittedAt: new Date().toISOString(),
-    score,
+    score: finalScore,
     correct,
     total,
     answered,
@@ -356,15 +452,15 @@ function renderExam(questions) {
 
 function renderResult(data) {
   resultSection.classList.remove("hidden");
-  scoreDiv.textContent = `成績：${data.score} 分（${data.correct}/${data.total}）`;
+  scoreDiv.textContent = `成績：${data.score} 分（可評分題 ${data.correct}/${data.totalForScore}，總題數 ${data.total}）`;
 
   resultList.innerHTML = "";
   data.details.forEach((item, idx) => {
     const div = document.createElement("div");
     div.className = "question";
 
-    const stateClass = item.isCorrect ? "result-ok" : "result-bad";
-    const stateText = item.isCorrect ? "答對" : "答錯";
+    const stateClass = item.isScorable ? (item.isCorrect ? "result-ok" : "result-bad") : "";
+    const stateText = item.isScorable ? (item.isCorrect ? "答對" : "答錯") : "此題未設定答案";
 
     div.innerHTML = `
       <p><strong>${idx + 1}. ${item.question}</strong></p>
