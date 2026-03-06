@@ -11,22 +11,18 @@
       <h1>智慧題庫模擬考系統</h1>
 
       <section class="card">
-        <h2>1) 上傳題庫檔案</h2>
-        <p>支援 Word(.docx) / PDF(.pdf) / Excel(.xlsx/.xls) / TXT(.txt)</p>
-        <p class="hint">資料只存你自己的瀏覽器，不需要後端網址。</p>
+        <h2>1) 載入題庫</h2>
+        <p class="hint">此版本已改為內建題庫模式，不再提供上傳題庫。</p>
         <label for="import-mode">匯入模式：</label>
         <select id="import-mode">
           <option value="replace">覆蓋現有題庫</option>
           <option value="append">追加到現有題庫</option>
         </select>
         <button id="clear-all-bank-btn" class="danger" type="button">先清空總題庫</button>
-        <form id="upload-form">
-          <input id="file-input" type="file" accept=".pdf,.docx,.xlsx,.xls,.txt" required />
-          <button type="submit">上傳並抽題</button>
-        </form>
         <button id="load-default-btn" type="button">載入內建題庫（802396666）</button>
         <button id="load-pg11501-btn" type="button">載入內建題庫（品管土建115年1月）</button>
-        <div id="upload-result" class="hint"></div>
+        <button id="load-mixed-btn" type="button">載入混合題庫（兩套合併）</button>
+        <div id="load-result" class="hint"></div>
       </section>
 
       <section class="card">
@@ -63,8 +59,6 @@
       </section>
     </main>
 
-    <script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="./app.js" type="module"></script>
   </body>
 </html>

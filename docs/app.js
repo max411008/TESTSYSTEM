@@ -1,20 +1,15 @@
-import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/build/pdf.min.mjs";
-
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-  "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/build/pdf.worker.min.mjs";
-
 const BANK_KEY = "questionBankV1";
 const HISTORY_KEY = "examHistoryV1";
 const DEFAULT_BANK_URL = "./default-question-bank.json";
 const PG11501_BANK_URL = "./question-bank-pg11501.json";
 
-const uploadForm = document.getElementById("upload-form");
-const fileInput = document.getElementById("file-input");
 const importModeSelect = document.getElementById("import-mode");
 const clearAllBankBtn = document.getElementById("clear-all-bank-btn");
 const loadDefaultBtn = document.getElementById("load-default-btn");
 const loadPg11501Btn = document.getElementById("load-pg11501-btn");
-const uploadResult = document.getElementById("upload-result");
+const loadMixedBtn = document.getElementById("load-mixed-btn");
+const loadResult = document.getElementById("load-result");
+
 const bankInfo = document.getElementById("bank-info");
 const examCountInput = document.getElementById("exam-count");
 const startExamBtn = document.getElementById("start-exam-btn");
@@ -39,6 +34,12 @@ let currentQuestionIndex = 0;
 
 function isPhoneLayout() {
   return window.matchMedia("(max-width: 820px)").matches;
+}
+
+function normalizeOptionKey(raw) {
+  const upper = (raw || "").trim().toUpperCase();
+  const match = upper.match(/[A-F]|[1-9]|[OX]|[TF]/);
+  return match ? match[0] : upper.slice(0, 1);
 }
 
 function loadBank() {
@@ -76,30 +77,46 @@ function shouldReplaceImport() {
   return importModeSelect && importModeSelect.value === "replace";
 }
 
-async function loadBankFromFile(url, replace = false, label = "內建題庫") {
+async function fetchBankJson(url) {
   const res = await fetch(url, { cache: "no-cache" });
-  if (!res.ok) throw new Error("無法載入內建題庫檔案");
+  if (!res.ok) throw new Error("無法載入題庫檔案");
   const data = await res.json();
-  if (!Array.isArray(data) || data.length === 0) throw new Error("內建題庫為空");
+  if (!Array.isArray(data) || data.length === 0) throw new Error("題庫檔案是空的");
+  return data;
+}
 
-  const current = loadBank();
+function mergeBank(current, incoming, replace) {
   const merged = replace ? [] : [...current];
   const exists = new Set(merged.map((q) => q.id));
   let added = 0;
-  for (const q of data) {
+
+  for (const q of incoming) {
     if (q && q.id && !exists.has(q.id)) {
       merged.push(q);
       exists.add(q.id);
       added += 1;
     }
   }
-  saveBank(merged);
-  refreshBankInfo();
-  uploadResult.textContent = `已載入${label} ${added} 題（總題數 ${merged.length} 題）`;
+  return { merged, added };
 }
 
-async function loadDefaultBank(replace = false) {
-  return loadBankFromFile(DEFAULT_BANK_URL, replace, "內建題庫（802396666）");
+async function loadBankFromFile(url, replace = false, label = "內建題庫") {
+  const incoming = await fetchBankJson(url);
+  const current = loadBank();
+  const { merged, added } = mergeBank(current, incoming, replace);
+  saveBank(merged);
+  refreshBankInfo();
+  loadResult.textContent = `已載入${label} ${added} 題（總題數 ${merged.length} 題）`;
+}
+
+async function loadMixedBanks(replace = false) {
+  const [bankA, bankB] = await Promise.all([fetchBankJson(DEFAULT_BANK_URL), fetchBankJson(PG11501_BANK_URL)]);
+  const current = loadBank();
+  const source = [...bankA, ...bankB];
+  const { merged, added } = mergeBank(current, source, replace);
+  saveBank(merged);
+  refreshBankInfo();
+  loadResult.textContent = `已載入混合題庫 ${added} 題（總題數 ${merged.length} 題）`;
 }
 
 function formatDate(isoText) {
@@ -142,416 +159,11 @@ function renderHistory() {
   });
 }
 
-function randomId() {
-  return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
-}
-
-function normalizeOptionKey(raw) {
-  const circledMap = {
-    "①": "1",
-    "②": "2",
-    "③": "3",
-    "④": "4",
-    "⑤": "5",
-    "⑥": "6",
-    "⑦": "7",
-    "⑧": "8",
-    "⑨": "9",
-  };
-  const upper = (raw || "")
-    .trim()
-    .toUpperCase()
-    .replace(/[Ａ-Ｚ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 65248))
-    .replace(/[０-９]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 65248))
-    .replace(/[①②③④⑤⑥⑦⑧⑨]/g, (ch) => circledMap[ch] || ch);
-  const match = upper.match(/[A-F]|[1-9]|[OX]|[TF]/);
-  return match ? match[0] : upper.slice(0, 1);
-}
-
-function normalizeText(rawText) {
-  return (rawText || "")
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n")
-    .replace(/[０-９]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 65248))
-    .replace(/[Ａ-Ｚ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 65248))
-    .replace(/[ａ-ｚ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 65248))
-    .replace(/（/g, "(")
-    .replace(/）/g, ")")
-    .replace(/．/g, ".")
-    .replace(/\n{3,}/g, "\n\n");
-}
-
-function extractGlobalAnswers(text) {
-  const answerMap = {};
-  const answerSectionMatch = text.match(
-    /(?:答案|解答|參考答案|answer\s*key|answers?)\s*[:：]?([\s\S]{0,5000})/i
-  );
-  const source = answerSectionMatch ? answerSectionMatch[1] : text;
-
-  const pairRegex =
-    /(?:^|\s)(\d{1,4})\s*[\.\)、:：-]?\s*[\(（]?([A-Fa-f1-9①②③④⑤⑥⑦⑧⑨Ａ-Ｆ０-９])[\)）]?(?=\s|$)/gi;
-  let match;
-  while ((match = pairRegex.exec(source)) !== null) {
-    answerMap[match[1]] = normalizeOptionKey(match[2]);
-  }
-  return answerMap;
-}
-
-function cleanPdfNoise(text) {
-  return (text || "")
-    .replace(/第\s*\d+\s*頁\s*[，,、]?\s*共\s*\d+\s*頁/gi, " ")
-    .replace(/查\s*詢\s*清\s*除/gi, " ")
-    .replace(/查詢結果\s*序號\s*課程名稱\s*題目\s*答案/gi, " ")
-    .replace(/\s{2,}/g, " ")
-    .trim();
-}
-
-function extractAnswerFromTail(text) {
-  if (!text) return "";
-  const cleaned = cleanPdfNoise(text);
-
-  const explicit = [...cleaned.matchAll(/(?:答案|解答)\s*[:：]?\s*([A-F1-9Ａ-Ｆ０-９①②③④⑤⑥⑦⑧⑨])/gi)];
-  if (explicit.length > 0) {
-    return normalizeOptionKey(explicit[explicit.length - 1][1]);
-  }
-
-  const punct = [...cleaned.matchAll(/[。.!?）)]\s*([A-F1-9Ａ-Ｆ０-９①②③④⑤⑥⑦⑧⑨])(?=\s|$)/gi)];
-  if (punct.length > 0) {
-    return normalizeOptionKey(punct[punct.length - 1][1]);
-  }
-
-  const tail = [...cleaned.matchAll(/(?:^|\s)([A-F1-9Ａ-Ｆ０-９①②③④⑤⑥⑦⑧⑨])\s*$/gi)];
-  if (tail.length > 0) {
-    return normalizeOptionKey(tail[tail.length - 1][1]);
-  }
-  return "";
-}
-
-function parseCompactTableQuestions(rawText) {
-  const text = cleanPdfNoise(normalizeText(rawText).replace(/\n+/g, " ").replace(/\s{2,}/g, " ").trim());
-  if (!text) return [];
-
-  const records =
-    text.match(
-      /(?:^|\s)(\d{1,4})\s+[\s\S]*?\(A\)[\s\S]*?\(B\)[\s\S]*?(?=(?:\s\d{1,4}\s+[\s\S]*?\(A\))|$)/gi
-    ) || [];
-
-  const result = [];
-  for (const rec of records) {
-    const m = rec.match(/^\s*(\d{1,4})\s+([\s\S]+)$/);
-    if (!m) continue;
-    const qNo = m[1];
-    let content = m[2].trim();
-
-    content = content.replace(/^序號\s*課程名稱\s*題目\s*答案\s*/i, "").trim();
-    if (!/\(A\).+\(B\)/i.test(content)) continue;
-
-    let answer = extractAnswerFromTail(content);
-    if (answer) {
-      content = content
-        .replace(new RegExp(`[。.!?）)]\\s*${answer}\\s*$`, "i"), "")
-        .replace(new RegExp(`\\s${answer}\\s*$`, "i"), "")
-        .trim();
-    }
-
-    const optIter = [...content.matchAll(/\(([A-F1-9])\)/gi)];
-    if (optIter.length < 2) continue;
-
-    const stem = content.slice(0, optIter[0].index).trim(" ：:。;；");
-    if (!stem) continue;
-
-    const options = [];
-    for (let i = 0; i < optIter.length; i += 1) {
-      const key = normalizeOptionKey(optIter[i][1]);
-      const start = optIter[i].index + optIter[i][0].length;
-      const end = i + 1 < optIter.length ? optIter[i + 1].index : content.length;
-      const optText = content.slice(start, end).trim(" ，,。;；:：");
-      if (optText) options.push({ key, text: optText });
-    }
-
-    if (options.length >= 2) {
-      result.push({
-        id: randomId(),
-        no: qNo,
-        question: stem,
-        options,
-        answer,
-        explanation: "",
-      });
-    }
-  }
-
-  return result;
-}
-
-function parseQuestionBlocks(rawText) {
-  const text = normalizeText(rawText);
-  const blankBlocks = text
-    .split(/\n\s*\n/)
-    .map((b) => b.trim())
-    .filter(Boolean);
-  const numberedBlocks =
-    text.match(
-      /(?:^|\n)\s*(?:Q\s*)?\d{1,4}[\)\]\.、:：-][\s\S]*?(?=(?:\n\s*(?:Q\s*)?\d{1,4}[\)\]\.、:：-])|$)/gim
-    ) || [];
-  const blocks = numberedBlocks.length > blankBlocks.length ? numberedBlocks : blankBlocks;
-
-  const questions = [];
-  const globalAnswers = extractGlobalAnswers(text);
-
-  for (const block of blocks) {
-    const rawLines = block
-      .split("\n")
-      .map((ln) => ln.trim())
-      .filter(Boolean);
-    const lines = [];
-    for (const line of rawLines) {
-      const markerCount = (
-        line.match(/[\(（]?[A-FＡ-Ｆ1-9０-９①②③④⑤⑥⑦⑧⑨][\)）]?[\.\、:：-]/g) || []
-      ).length;
-      if (markerCount >= 2) {
-        const expanded = line
-          .replace(/([^\s])\s+(?=[\(（]?[A-FＡ-Ｆ1-9０-９①②③④⑤⑥⑦⑧⑨][\)）]?[\.\、:：-])/g, "$1\n")
-          .split("\n")
-          .map((v) => v.trim())
-          .filter(Boolean);
-        lines.push(...expanded);
-      } else {
-        lines.push(line);
-      }
-    }
-
-    if (lines.length < 2) continue;
-
-    let qNo = "";
-    const qTextParts = [];
-    const options = [];
-    let answer = "";
-    let explanation = "";
-    let currentOptIdx = null;
-
-    for (const line of lines) {
-      const ansMatch = line.match(
-        /^(?:答案|解答|answer)\s*[:：]\s*[\(（]?([A-Fa-fＡ-Ｆ1-9０-９①②③④⑤⑥⑦⑧⑨])[\)）]?/i
-      );
-      const expMatch = line.match(/^(?:解析|explanation)\s*[:：]\s*(.+)/i);
-      const optMatch = line.match(
-        /^(?:[\(（])?([A-Fa-fＡ-Ｆ1-9０-９①②③④⑤⑥⑦⑧⑨])(?:[\)）])?[\]\.、:：\s-]+(.+)$/
-      );
-
-      if (ansMatch) {
-        answer = normalizeOptionKey(ansMatch[1]);
-        currentOptIdx = null;
-        continue;
-      }
-
-      if (expMatch) {
-        explanation = expMatch[1].trim();
-        currentOptIdx = null;
-        continue;
-      }
-
-      if (optMatch) {
-        options.push({ key: normalizeOptionKey(optMatch[1]), text: optMatch[2].trim() });
-        currentOptIdx = options.length - 1;
-        continue;
-      }
-
-      // Some table PDFs place the answer in a standalone cell/line.
-      if (!answer && options.length >= 2) {
-        const soloAns = line.match(/^[\s\(（]*([A-F1-9Ａ-Ｆ０-９①②③④⑤⑥⑦⑧⑨])[\s\)）]*$/i);
-        if (soloAns) {
-          answer = normalizeOptionKey(soloAns[1]);
-          currentOptIdx = null;
-          continue;
-        }
-      }
-
-      if (currentOptIdx !== null) {
-        options[currentOptIdx].text += ` ${line}`;
-      } else {
-        const qNoMatch = line.match(/^(?:Q\s*)?(\d{1,4})\s*[\)\]\.、:：-]+\s*/i);
-        if (!qNo && qNoMatch) qNo = qNoMatch[1];
-        const clean = line.replace(/^(?:Q\s*\d+|\d+|題\s*\d+)\s*[\)\]\.、:：-]?\s*/i, "");
-        qTextParts.push(clean);
-      }
-    }
-
-    if (!answer && qNo && globalAnswers[qNo]) {
-      answer = globalAnswers[qNo];
-    }
-
-    if (!answer && options.length > 0) {
-      const lastIdx = options.length - 1;
-      const lastText = options[lastIdx].text || "";
-      const punctMatch = lastText.match(/([\s\S]*?)[。.!?]\s*([A-F1-9])\s*$/i);
-      if (punctMatch) {
-        answer = normalizeOptionKey(punctMatch[2]);
-        options[lastIdx].text = punctMatch[1].trim();
-      } else {
-        const tailMatch = lastText.match(/([\s\S]*?)\s+([A-F1-9])\s*$/i);
-        if (tailMatch) {
-          answer = normalizeOptionKey(tailMatch[2]);
-          options[lastIdx].text = tailMatch[1].trim();
-        }
-      }
-    }
-
-    if (!answer) {
-      const blockTail = block.match(/(?:[。.!?]|[\)）])\s*([A-F1-9])\s*$/i);
-      if (blockTail) {
-        answer = normalizeOptionKey(blockTail[1]);
-      }
-    }
-
-    if (!answer) {
-      answer = extractAnswerFromTail(block);
-    }
-
-    if (options.length >= 2 && qTextParts.length > 0) {
-      questions.push({
-        id: randomId(),
-        no: qNo,
-        question: qTextParts.join(" ").trim(),
-        options,
-        answer,
-        explanation,
-      });
-    }
-  }
-
-  if (questions.length === 0) {
-    return parseCompactTableQuestions(rawText);
-  }
-
-  const compact = parseCompactTableQuestions(rawText);
-  if (compact.length > 0) {
-    const qWithAns = questions.filter((q) => q.answer).length;
-    const cWithAns = compact.filter((q) => q.answer).length;
-    // Prefer the parser that recovers more answers for table-like PDFs.
-    if (cWithAns > qWithAns && compact.length >= Math.floor(questions.length * 0.5)) {
-      return compact;
-    }
-  }
-
-  return questions;
-}
-
-async function readPdf(file) {
-  const data = new Uint8Array(await file.arrayBuffer());
-  const doc = await pdfjsLib.getDocument({ data }).promise;
-  const parts = [];
-
-  for (let p = 1; p <= doc.numPages; p += 1) {
-    const page = await doc.getPage(p);
-    const content = await page.getTextContent();
-    const rows = content.items
-      .filter((it) => it.str && it.str.trim())
-      .map((it) => ({
-        text: it.str.trim(),
-        x: it.transform?.[4] || 0,
-        y: it.transform?.[5] || 0,
-      }))
-      .sort((a, b) => {
-        if (Math.abs(b.y - a.y) > 2) return b.y - a.y;
-        return a.x - b.x;
-      });
-
-    const lines = [];
-    let current = [];
-    let currentY = null;
-    for (const item of rows) {
-      if (currentY === null || Math.abs(item.y - currentY) <= 2) {
-        current.push(item);
-        currentY = currentY === null ? item.y : (currentY + item.y) / 2;
-      } else {
-        current.sort((a, b) => a.x - b.x);
-        lines.push(current.map((r) => r.text).join(" "));
-        current = [item];
-        currentY = item.y;
-      }
-    }
-    if (current.length > 0) {
-      current.sort((a, b) => a.x - b.x);
-      lines.push(current.map((r) => r.text).join(" "));
-    }
-
-    parts.push(lines.join("\n"));
-  }
-
-  return parts.join("\n");
-}
-
-async function readDocx(file) {
-  const buffer = await file.arrayBuffer();
-  const result = await window.mammoth.extractRawText({ arrayBuffer: buffer });
-  return result.value || "";
-}
-
-async function readExcel(file) {
-  const buffer = await file.arrayBuffer();
-  const wb = window.XLSX.read(buffer, { type: "array" });
-  const rows = [];
-
-  for (const sheetName of wb.SheetNames) {
-    rows.push(`### 工作表: ${sheetName}`);
-    const ws = wb.Sheets[sheetName];
-    const data = window.XLSX.utils.sheet_to_json(ws, { header: 1, raw: false });
-    for (const row of data) {
-      const vals = row.map((v) => String(v || "").trim()).filter(Boolean);
-      if (vals.length > 0) rows.push(vals.join(" | "));
-    }
-  }
-
-  return rows.join("\n");
-}
-
-async function extractText(file) {
-  const ext = file.name.toLowerCase().split(".").pop();
-
-  if (ext === "txt") return file.text();
-  if (ext === "pdf") return readPdf(file);
-  if (ext === "docx") return readDocx(file);
-  if (ext === "xlsx" || ext === "xls") return readExcel(file);
-
-  throw new Error("不支援的檔案格式");
-}
-
-uploadForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const file = fileInput.files[0];
-  if (!file) return;
-
-  uploadResult.textContent = "上傳與解析中...";
-  let extractedText = "";
-
-  try {
-    extractedText = await extractText(file);
-    const parsed = parseQuestionBlocks(extractedText);
-    if (parsed.length === 0) {
-      throw new Error("沒有抽出有效題目，請確認題目含選項（A/B/C/D）");
-    }
-
-    const bank = shouldReplaceImport() ? [] : loadBank();
-    bank.push(...parsed);
-    saveBank(bank);
-
-    const withAnswer = parsed.filter((q) => q.answer).length;
-    const withoutAnswer = parsed.length - withAnswer;
-    const modeText = shouldReplaceImport() ? "覆蓋" : "追加";
-    uploadResult.textContent = `成功${modeText} ${parsed.length} 題（有答案 ${withAnswer} 題，無答案 ${withoutAnswer} 題），總題數 ${bank.length} 題`;
-    refreshBankInfo();
-  } catch (err) {
-    const preview = extractedText ? `；抽取文字預覽：${extractedText.slice(0, 120).replace(/\n/g, " ")}` : "";
-    uploadResult.textContent = `失敗：${err.message}${preview}`;
-  }
-});
-
 loadDefaultBtn.addEventListener("click", async () => {
   try {
-    await loadDefaultBank(shouldReplaceImport());
+    await loadBankFromFile(DEFAULT_BANK_URL, shouldReplaceImport(), "內建題庫（802396666）");
   } catch (err) {
-    uploadResult.textContent = `載入失敗：${err.message}`;
+    loadResult.textContent = `載入失敗：${err.message}`;
   }
 });
 
@@ -559,14 +171,22 @@ loadPg11501Btn.addEventListener("click", async () => {
   try {
     await loadBankFromFile(PG11501_BANK_URL, shouldReplaceImport(), "內建題庫（品管土建115年1月）");
   } catch (err) {
-    uploadResult.textContent = `載入失敗：${err.message}`;
+    loadResult.textContent = `載入失敗：${err.message}`;
+  }
+});
+
+loadMixedBtn.addEventListener("click", async () => {
+  try {
+    await loadMixedBanks(shouldReplaceImport());
+  } catch (err) {
+    loadResult.textContent = `載入失敗：${err.message}`;
   }
 });
 
 startExamBtn.addEventListener("click", () => {
   const bank = loadBank();
   if (bank.length === 0) {
-    alert("題庫是空的，請先上傳題目");
+    alert("題庫是空的，請先載入題庫");
     return;
   }
 
@@ -630,6 +250,8 @@ clearBankBtn.addEventListener("click", () => {
 
   saveBank([]);
   currentExamQuestions = [];
+  currentExamAnswers = {};
+  currentQuestionIndex = 0;
   examSection.classList.add("hidden");
   resultSection.classList.add("hidden");
   refreshBankInfo();
@@ -645,7 +267,7 @@ clearAllBankBtn.addEventListener("click", () => {
   examSection.classList.add("hidden");
   resultSection.classList.add("hidden");
   refreshBankInfo();
-  uploadResult.textContent = "已清空總題庫，現在可以重新匯入。";
+  loadResult.textContent = "已清空總題庫，現在可以重新載入。";
 });
 
 clearHistoryBtn.addEventListener("click", () => {
@@ -799,12 +421,6 @@ function renderResult(data) {
 
 refreshBankInfo();
 renderHistory();
-
-if (loadBank().length === 0) {
-  loadDefaultBank(false).catch((err) => {
-    uploadResult.textContent = `自動載入內建題庫失敗：${err.message}`;
-  });
-}
 
 window.addEventListener("resize", () => {
   if (!examSection.classList.contains("hidden") && currentExamQuestions.length > 0) {
