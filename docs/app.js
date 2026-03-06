@@ -10,6 +10,7 @@ const DEFAULT_BANK_URL = "./default-question-bank.json";
 const uploadForm = document.getElementById("upload-form");
 const fileInput = document.getElementById("file-input");
 const importModeSelect = document.getElementById("import-mode");
+const clearAllBankBtn = document.getElementById("clear-all-bank-btn");
 const loadDefaultBtn = document.getElementById("load-default-btn");
 const uploadResult = document.getElementById("upload-result");
 const bankInfo = document.getElementById("bank-info");
@@ -563,6 +564,18 @@ clearBankBtn.addEventListener("click", () => {
   resultSection.classList.add("hidden");
   refreshBankInfo();
   alert("題庫已清空");
+});
+
+clearAllBankBtn.addEventListener("click", () => {
+  if (!confirm("確定要先清空總題庫嗎？")) return;
+  saveBank([]);
+  currentExamQuestions = [];
+  currentExamAnswers = {};
+  currentQuestionIndex = 0;
+  examSection.classList.add("hidden");
+  resultSection.classList.add("hidden");
+  refreshBankInfo();
+  uploadResult.textContent = "已清空總題庫，現在可以重新匯入。";
 });
 
 clearHistoryBtn.addEventListener("click", () => {
