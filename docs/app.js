@@ -1,8 +1,27 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import {
+  createUserWithEmailAndPassword,
+  getAuth,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import { doc, getDoc, getFirestore, setDoc } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import { firebaseConfig, hasFirebaseConfig } from "./firebase-config.js";
+
 const BANK_KEY = "questionBankV1";
 const HISTORY_KEY = "examHistoryV1";
 const STARRED_KEY = "starredQuestionIdsV1";
 const WRONG_KEY = "wrongQuestionIdsV1";
 const PCC2690_BANK_URL = "./pcc_2690_questions.json";
+
+const authStatus = document.getElementById("auth-status");
+const syncStatus = document.getElementById("sync-status");
+const authEmailInput = document.getElementById("auth-email");
+const authPasswordInput = document.getElementById("auth-password");
+const authSignupBtn = document.getElementById("auth-signup-btn");
+const authLoginBtn = document.getElementById("auth-login-btn");
+const authLogoutBtn = document.getElementById("auth-logout-btn");
 
 const loadPcc2690Btn = document.getElementById("load-pcc2690-btn");
 const loadResult = document.getElementById("load-result");
@@ -37,6 +56,10 @@ const wrongList = document.getElementById("wrong-list");
 let currentExamQuestions = [];
 let currentExamAnswers = {};
 let currentQuestionIndex = 0;
+let auth = null;
+let db = null;
+let currentUser = null;
+let isApplyingRemoteState = false;
 
 function isPhoneLayout() {
   return window.matchMedia("(max-width: 820px)").matches;
@@ -46,6 +69,95 @@ function normalizeOptionKey(raw) {
   const upper = (raw || "").trim().toUpperCase();
   const match = upper.match(/[A-F]|[1-9]|[OX]|[TF]/);
   return match ? match[0] : upper.slice(0, 1);
+}
+
+function setSyncStatus(text) {
+  syncStatus.textContent = text;
+}
+
+function setAuthStatus(text) {
+  authStatus.textContent = text;
+}
+
+function cloudDocRef(uid) {
+  return doc(db, "users", uid, "study", "state");
+}
+
+async function pushCloudState(reason = "") {
+  if (!db || !currentUser || isApplyingRemoteState) return;
+  try {
+    await setDoc(
+      cloudDocRef(currentUser.uid),
+      {
+        email: currentUser.email || "",
+        history: loadHistory(),
+        starredIds: loadStarredIds(),
+        wrongIds: loadWrongIds(),
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+    setSyncStatus(`已同步雲端${reason ? `（${reason}）` : ""}`);
+  } catch (err) {
+    setSyncStatus(`同步失敗：${err.message}`);
+  }
+}
+
+async function pullCloudState() {
+  if (!db || !currentUser) return;
+  try {
+    setSyncStatus("同步中...");
+    const snap = await getDoc(cloudDocRef(currentUser.uid));
+    if (!snap.exists()) {
+      await pushCloudState("建立雲端資料");
+      return;
+    }
+
+    const data = snap.data() || {};
+    isApplyingRemoteState = true;
+    saveHistory(Array.isArray(data.history) ? data.history : []);
+    saveStarredIds(Array.isArray(data.starredIds) ? data.starredIds : []);
+    saveWrongIds(Array.isArray(data.wrongIds) ? data.wrongIds : []);
+    isApplyingRemoteState = false;
+
+    renderHistory();
+    renderStarred();
+    renderWrong();
+    setSyncStatus("已從雲端同步");
+  } catch (err) {
+    isApplyingRemoteState = false;
+    setSyncStatus(`讀取雲端失敗：${err.message}`);
+  }
+}
+
+function getAuthFormValue() {
+  const email = String(authEmailInput.value || "").trim();
+  const password = String(authPasswordInput.value || "");
+  return { email, password };
+}
+
+async function setupCloudAuth() {
+  if (!hasFirebaseConfig()) {
+    setAuthStatus("尚未設定 Firebase，請先填寫 firebase-config.js");
+    setSyncStatus("未啟用雲端同步");
+    return;
+  }
+
+  const app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+
+  onAuthStateChanged(auth, async (user) => {
+    currentUser = user || null;
+    if (!currentUser) {
+      setAuthStatus("尚未登入");
+      setSyncStatus("未同步（請登入）");
+      return;
+    }
+
+    setAuthStatus(`已登入：${currentUser.email || currentUser.uid}`);
+    await pullCloudState();
+  });
 }
 
 function loadBank() {
@@ -72,6 +184,9 @@ function loadHistory() {
 
 function saveHistory(history) {
   localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+  if (!isApplyingRemoteState) {
+    void pushCloudState("更新考試紀錄");
+  }
 }
 
 function loadStarredIds() {
@@ -86,6 +201,9 @@ function loadStarredIds() {
 
 function saveStarredIds(ids) {
   localStorage.setItem(STARRED_KEY, JSON.stringify(ids));
+  if (!isApplyingRemoteState) {
+    void pushCloudState("更新星號題");
+  }
 }
 
 function loadWrongIds() {
@@ -100,6 +218,9 @@ function loadWrongIds() {
 
 function saveWrongIds(ids) {
   localStorage.setItem(WRONG_KEY, JSON.stringify(ids));
+  if (!isApplyingRemoteState) {
+    void pushCloudState("更新錯題");
+  }
 }
 
 function isStarred(questionId) {
@@ -348,6 +469,59 @@ loadPcc2690Btn.addEventListener("click", async () => {
     renderWrong();
   } catch (err) {
     loadResult.textContent = `載入失敗：${err.message}`;
+  }
+});
+
+authSignupBtn.addEventListener("click", async () => {
+  if (!auth) {
+    alert("尚未設定 Firebase，請先填寫 firebase-config.js");
+    return;
+  }
+  const { email, password } = getAuthFormValue();
+  if (!email || !password) {
+    alert("請輸入 Email 與密碼");
+    return;
+  }
+  if (password.length < 6) {
+    alert("密碼至少需要 6 碼");
+    return;
+  }
+  try {
+    await createUserWithEmailAndPassword(auth, email, password);
+    setSyncStatus("註冊成功，正在同步...");
+  } catch (err) {
+    alert(`註冊失敗：${err.message}`);
+  }
+});
+
+authLoginBtn.addEventListener("click", async () => {
+  if (!auth) {
+    alert("尚未設定 Firebase，請先填寫 firebase-config.js");
+    return;
+  }
+  const { email, password } = getAuthFormValue();
+  if (!email || !password) {
+    alert("請輸入 Email 與密碼");
+    return;
+  }
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+    setSyncStatus("登入成功，正在同步...");
+  } catch (err) {
+    alert(`登入失敗：${err.message}`);
+  }
+});
+
+authLogoutBtn.addEventListener("click", async () => {
+  if (!auth || !currentUser) {
+    alert("目前尚未登入");
+    return;
+  }
+  try {
+    await signOut(auth);
+    setSyncStatus("已登出");
+  } catch (err) {
+    alert(`登出失敗：${err.message}`);
   }
 });
 
@@ -642,6 +816,7 @@ async function bootstrapBank() {
   }
 }
 
+setupCloudAuth();
 bootstrapBank();
 renderHistory();
 

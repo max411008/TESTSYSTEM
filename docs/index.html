@@ -11,6 +11,21 @@
       <h1>智慧題庫模擬考系統</h1>
 
       <section class="card">
+        <h2>帳號登入與同步</h2>
+        <div id="auth-status" class="hint">尚未登入</div>
+        <div id="auth-form">
+          <label for="auth-email">Email</label>
+          <input id="auth-email" type="email" placeholder="you@example.com" />
+          <label for="auth-password">密碼</label>
+          <input id="auth-password" type="password" placeholder="至少 6 碼" />
+          <button id="auth-signup-btn" type="button">註冊</button>
+          <button id="auth-login-btn" type="button">登入</button>
+          <button id="auth-logout-btn" class="danger" type="button">登出</button>
+        </div>
+        <div id="sync-status" class="hint">尚未同步</div>
+      </section>
+
+      <section class="card">
         <h2>載入題庫</h2>
         <p class="hint">此版本固定使用內建題庫：品管(土建) 2690 題（115年1月起適用）。</p>
         <button id="load-pcc2690-btn" type="button">載入內建題庫（2690題）</button>
