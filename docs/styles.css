@@ -92,3 +92,7 @@ input[type="url"] {
   color: var(--danger);
   font-weight: 700;
 }
+
+#history-list .question {
+  background: #fcfeff;
+}

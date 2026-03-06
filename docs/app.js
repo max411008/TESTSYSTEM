@@ -4,6 +4,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/build/pdf.worker.min.mjs";
 
 const BANK_KEY = "questionBankV1";
+const HISTORY_KEY = "examHistoryV1";
 
 const uploadForm = document.getElementById("upload-form");
 const fileInput = document.getElementById("file-input");
@@ -18,6 +19,9 @@ const submitExamBtn = document.getElementById("submit-exam-btn");
 const resultSection = document.getElementById("result-section");
 const scoreDiv = document.getElementById("score");
 const resultList = document.getElementById("result-list");
+const historySummary = document.getElementById("history-summary");
+const historyList = document.getElementById("history-list");
+const clearHistoryBtn = document.getElementById("clear-history-btn");
 
 let currentExamQuestions = [];
 
@@ -34,9 +38,62 @@ function saveBank(bank) {
   localStorage.setItem(BANK_KEY, JSON.stringify(bank));
 }
 
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory(history) {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+}
+
 function refreshBankInfo() {
   const bank = loadBank();
   bankInfo.textContent = `目前題庫：${bank.length} 題（存在此瀏覽器）`;
+}
+
+function formatDate(isoText) {
+  const date = new Date(isoText);
+  if (Number.isNaN(date.getTime())) return isoText;
+  return date.toLocaleString("zh-TW", { hour12: false });
+}
+
+function renderHistory() {
+  const history = loadHistory();
+  if (history.length === 0) {
+    historySummary.textContent = "尚無考試紀錄。";
+    historyList.innerHTML = "";
+    return;
+  }
+
+  const scores = history.map((h) => Number(h.score) || 0);
+  const totalAttempts = history.length;
+  const avg = Math.round((scores.reduce((sum, s) => sum + s, 0) / totalAttempts) * 100) / 100;
+  const best = Math.max(...scores);
+  const recent = history.slice(-5);
+  const recentAvg =
+    Math.round(
+      (recent.reduce((sum, h) => sum + (Number(h.score) || 0), 0) / Math.max(1, recent.length)) * 100
+    ) / 100;
+
+  historySummary.textContent = `總考次：${totalAttempts} 次 | 平均分數：${avg} | 最高分：${best} | 最近${recent.length}次平均：${recentAvg}`;
+
+  historyList.innerHTML = "";
+  const descHistory = [...history].reverse();
+  descHistory.forEach((item) => {
+    const box = document.createElement("div");
+    box.className = "question";
+    box.innerHTML = `
+      <p><strong>第 ${item.attempt} 次考試</strong>（${formatDate(item.submittedAt)}）</p>
+      <p>分數：${item.score}（${item.correct}/${item.total}）</p>
+      <p>作答：${item.answered} 題，未作答：${item.unanswered} 題</p>
+    `;
+    historyList.appendChild(box);
+  });
 }
 
 function randomId() {
@@ -234,6 +291,21 @@ submitExamBtn.addEventListener("click", () => {
   const total = currentExamQuestions.length;
   const score = total ? Math.round((correct / total) * 10000) / 100 : 0;
   renderResult({ score, correct, total, details });
+
+  const history = loadHistory();
+  const answered = Object.keys(answers).length;
+  const unanswered = Math.max(0, total - answered);
+  history.push({
+    attempt: history.length + 1,
+    submittedAt: new Date().toISOString(),
+    score,
+    correct,
+    total,
+    answered,
+    unanswered,
+  });
+  saveHistory(history);
+  renderHistory();
 });
 
 clearBankBtn.addEventListener("click", () => {
@@ -245,6 +317,13 @@ clearBankBtn.addEventListener("click", () => {
   resultSection.classList.add("hidden");
   refreshBankInfo();
   alert("題庫已清空");
+});
+
+clearHistoryBtn.addEventListener("click", () => {
+  if (!confirm("確定要清空所有考試紀錄嗎？")) return;
+  saveHistory([]);
+  renderHistory();
+  alert("考試紀錄已清空");
 });
 
 function renderExam(questions) {
@@ -300,3 +379,4 @@ function renderResult(data) {
 }
 
 refreshBankInfo();
+renderHistory();
