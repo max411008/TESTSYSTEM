@@ -59,7 +59,8 @@ button.danger {
 
 input[type="number"],
 input[type="file"],
-input[type="url"] {
+input[type="url"],
+select {
   width: 100%;
   margin-top: 8px;
   margin-bottom: 8px;

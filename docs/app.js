@@ -9,6 +9,7 @@ const DEFAULT_BANK_URL = "./default-question-bank.json";
 
 const uploadForm = document.getElementById("upload-form");
 const fileInput = document.getElementById("file-input");
+const importModeSelect = document.getElementById("import-mode");
 const loadDefaultBtn = document.getElementById("load-default-btn");
 const uploadResult = document.getElementById("upload-result");
 const bankInfo = document.getElementById("bank-info");
@@ -66,6 +67,10 @@ function saveHistory(history) {
 function refreshBankInfo() {
   const bank = loadBank();
   bankInfo.textContent = `目前題庫：${bank.length} 題（存在此瀏覽器）`;
+}
+
+function shouldReplaceImport() {
+  return importModeSelect && importModeSelect.value === "replace";
 }
 
 async function loadDefaultBank(replace = false) {
@@ -464,13 +469,14 @@ uploadForm.addEventListener("submit", async (e) => {
       throw new Error("沒有抽出有效題目，請確認題目含選項（A/B/C/D）");
     }
 
-    const bank = loadBank();
+    const bank = shouldReplaceImport() ? [] : loadBank();
     bank.push(...parsed);
     saveBank(bank);
 
     const withAnswer = parsed.filter((q) => q.answer).length;
     const withoutAnswer = parsed.length - withAnswer;
-    uploadResult.textContent = `成功新增 ${parsed.length} 題（有答案 ${withAnswer} 題，無答案 ${withoutAnswer} 題），總題數 ${bank.length} 題`;
+    const modeText = shouldReplaceImport() ? "覆蓋" : "追加";
+    uploadResult.textContent = `成功${modeText} ${parsed.length} 題（有答案 ${withAnswer} 題，無答案 ${withoutAnswer} 題），總題數 ${bank.length} 題`;
     refreshBankInfo();
   } catch (err) {
     const preview = extractedText ? `；抽取文字預覽：${extractedText.slice(0, 120).replace(/\n/g, " ")}` : "";
@@ -480,7 +486,7 @@ uploadForm.addEventListener("submit", async (e) => {
 
 loadDefaultBtn.addEventListener("click", async () => {
   try {
-    await loadDefaultBank(false);
+    await loadDefaultBank(shouldReplaceImport());
   } catch (err) {
     uploadResult.textContent = `載入失敗：${err.message}`;
   }
