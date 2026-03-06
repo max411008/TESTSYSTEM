@@ -204,7 +204,7 @@ function parseCompactTableQuestions(rawText) {
     content = content.replace(/^序號\s*課程名稱\s*題目\s*答案\s*/i, "").trim();
     if (!/\(A\).+\(B\)/i.test(content)) continue;
 
-    const answerMatch = content.match(/[。.\s]([A-F1-9])\s*$/i);
+    const answerMatch = content.match(/(?:[。.!?]|\s)([A-F1-9])\s*$/i);
     const answer = answerMatch ? normalizeOptionKey(answerMatch[1]) : "";
     if (answerMatch) {
       content = content.slice(0, answerMatch.index).trim();
@@ -325,6 +325,29 @@ function parseQuestionBlocks(rawText) {
 
     if (!answer && qNo && globalAnswers[qNo]) {
       answer = globalAnswers[qNo];
+    }
+
+    if (!answer && options.length > 0) {
+      const lastIdx = options.length - 1;
+      const lastText = options[lastIdx].text || "";
+      const punctMatch = lastText.match(/([\s\S]*?)[。.!?]\s*([A-F1-9])\s*$/i);
+      if (punctMatch) {
+        answer = normalizeOptionKey(punctMatch[2]);
+        options[lastIdx].text = punctMatch[1].trim();
+      } else {
+        const tailMatch = lastText.match(/([\s\S]*?)\s+([A-F1-9])\s*$/i);
+        if (tailMatch) {
+          answer = normalizeOptionKey(tailMatch[2]);
+          options[lastIdx].text = tailMatch[1].trim();
+        }
+      }
+    }
+
+    if (!answer) {
+      const blockTail = block.match(/(?:[。.!?]|[\)）])\s*([A-F1-9])\s*$/i);
+      if (blockTail) {
+        answer = normalizeOptionKey(blockTail[1]);
+      }
     }
 
     if (options.length >= 2 && qTextParts.length > 0) {
