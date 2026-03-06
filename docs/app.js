@@ -14,7 +14,11 @@ const examCountInput = document.getElementById("exam-count");
 const startExamBtn = document.getElementById("start-exam-btn");
 const clearBankBtn = document.getElementById("clear-bank-btn");
 const examSection = document.getElementById("exam-section");
+const examProgress = document.getElementById("exam-progress");
 const examForm = document.getElementById("exam-form");
+const examNav = document.getElementById("exam-nav");
+const prevQuestionBtn = document.getElementById("prev-question-btn");
+const nextQuestionBtn = document.getElementById("next-question-btn");
 const submitExamBtn = document.getElementById("submit-exam-btn");
 const resultSection = document.getElementById("result-section");
 const scoreDiv = document.getElementById("score");
@@ -24,6 +28,12 @@ const historyList = document.getElementById("history-list");
 const clearHistoryBtn = document.getElementById("clear-history-btn");
 
 let currentExamQuestions = [];
+let currentExamAnswers = {};
+let currentQuestionIndex = 0;
+
+function isPhoneLayout() {
+  return window.matchMedia("(max-width: 820px)").matches;
+}
 
 function loadBank() {
   try {
@@ -350,6 +360,8 @@ startExamBtn.addEventListener("click", () => {
   const count = Math.max(1, Math.min(Number(examCountInput.value || 10), bank.length));
   const shuffled = [...bank].sort(() => Math.random() - 0.5);
   currentExamQuestions = shuffled.slice(0, count);
+  currentExamAnswers = {};
+  currentQuestionIndex = 0;
 
   renderExam(currentExamQuestions);
   examSection.classList.remove("hidden");
@@ -357,11 +369,7 @@ startExamBtn.addEventListener("click", () => {
 });
 
 submitExamBtn.addEventListener("click", () => {
-  const answers = {};
-  const radios = examForm.querySelectorAll("input[type='radio']:checked");
-  radios.forEach((r) => {
-    answers[r.name] = r.value;
-  });
+  const answers = { ...currentExamAnswers };
 
   let correct = 0;
   let scorableTotal = 0;
@@ -422,7 +430,74 @@ clearHistoryBtn.addEventListener("click", () => {
   alert("考試紀錄已清空");
 });
 
+prevQuestionBtn.addEventListener("click", () => {
+  if (currentQuestionIndex > 0) {
+    currentQuestionIndex -= 1;
+    renderExam(currentExamQuestions);
+  }
+});
+
+nextQuestionBtn.addEventListener("click", () => {
+  if (currentQuestionIndex < currentExamQuestions.length - 1) {
+    currentQuestionIndex += 1;
+    renderExam(currentExamQuestions);
+  }
+});
+
 function renderExam(questions) {
+  if (!questions || questions.length === 0) {
+    examForm.innerHTML = "";
+    examProgress.textContent = "";
+    return;
+  }
+
+  if (isPhoneLayout()) {
+    renderExamPhone(questions);
+  } else {
+    renderExamDesktop(questions);
+  }
+}
+
+function renderExamPhone(questions) {
+  const safeIndex = Math.max(0, Math.min(currentQuestionIndex, questions.length - 1));
+  currentQuestionIndex = safeIndex;
+  const q = questions[safeIndex];
+
+  examForm.innerHTML = "";
+  const box = document.createElement("div");
+  box.className = "question";
+
+  const title = document.createElement("p");
+  title.textContent = `${safeIndex + 1}. ${q.question}`;
+  box.appendChild(title);
+
+  q.options.forEach((opt) => {
+    const label = document.createElement("label");
+    label.className = "option-label";
+
+    const radio = document.createElement("input");
+    radio.type = "radio";
+    radio.name = q.id;
+    radio.value = opt.key;
+    radio.checked = currentExamAnswers[q.id] === opt.key;
+    radio.addEventListener("change", () => {
+      currentExamAnswers[q.id] = opt.key;
+      updateProgress();
+    });
+
+    label.appendChild(radio);
+    label.append(` ${opt.key}. ${opt.text}`);
+    box.appendChild(label);
+  });
+
+  examForm.appendChild(box);
+  examNav.classList.remove("hidden");
+  prevQuestionBtn.disabled = safeIndex === 0;
+  nextQuestionBtn.disabled = safeIndex === questions.length - 1;
+  updateProgress();
+}
+
+function renderExamDesktop(questions) {
   examForm.innerHTML = "";
   questions.forEach((q, idx) => {
     const box = document.createElement("div");
@@ -434,12 +509,17 @@ function renderExam(questions) {
 
     q.options.forEach((opt) => {
       const label = document.createElement("label");
-      label.style.display = "block";
+      label.className = "option-label";
 
       const radio = document.createElement("input");
       radio.type = "radio";
       radio.name = q.id;
       radio.value = opt.key;
+      radio.checked = currentExamAnswers[q.id] === opt.key;
+      radio.addEventListener("change", () => {
+        currentExamAnswers[q.id] = opt.key;
+        updateProgress();
+      });
 
       label.appendChild(radio);
       label.append(` ${opt.key}. ${opt.text}`);
@@ -448,6 +528,24 @@ function renderExam(questions) {
 
     examForm.appendChild(box);
   });
+  examNav.classList.remove("hidden");
+  prevQuestionBtn.disabled = true;
+  nextQuestionBtn.disabled = true;
+  updateProgress();
+}
+
+function updateProgress() {
+  const total = currentExamQuestions.length;
+  const answered = Object.keys(currentExamAnswers).filter((id) => Boolean(currentExamAnswers[id])).length;
+  if (total === 0) {
+    examProgress.textContent = "";
+    return;
+  }
+  if (isPhoneLayout()) {
+    examProgress.textContent = `第 ${currentQuestionIndex + 1}/${total} 題，已作答 ${answered} 題`;
+  } else {
+    examProgress.textContent = `共 ${total} 題，已作答 ${answered} 題`;
+  }
 }
 
 function renderResult(data) {
@@ -476,3 +574,9 @@ function renderResult(data) {
 
 refreshBankInfo();
 renderHistory();
+
+window.addEventListener("resize", () => {
+  if (!examSection.classList.contains("hidden") && currentExamQuestions.length > 0) {
+    renderExam(currentExamQuestions);
+  }
+});

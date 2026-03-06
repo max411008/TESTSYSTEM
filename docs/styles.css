@@ -42,9 +42,10 @@ button {
   color: #fff;
   border: none;
   border-radius: 8px;
-  padding: 8px 14px;
+  padding: 10px 14px;
   cursor: pointer;
   margin-top: 8px;
+  min-height: 44px;
 }
 
 button:hover {
@@ -79,8 +80,32 @@ input[type="url"] {
 .question {
   border: 1px solid #e8eef2;
   border-radius: 10px;
-  padding: 12px;
+  padding: 14px;
   margin-bottom: 12px;
+}
+
+.option-label {
+  display: block;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #dbe5ea;
+  border-radius: 10px;
+}
+
+.option-label input[type="radio"] {
+  transform: scale(1.25);
+  margin-right: 10px;
+}
+
+.exam-nav {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.exam-nav button {
+  flex: 1;
+  margin-top: 0;
 }
 
 .result-ok {
@@ -95,4 +120,36 @@ input[type="url"] {
 
 #history-list .question {
   background: #fcfeff;
+}
+
+@media (max-width: 820px) {
+  .container {
+    padding: 14px 12px calc(110px + env(safe-area-inset-bottom));
+  }
+
+  h1 {
+    font-size: 22px;
+    margin-bottom: 14px;
+  }
+
+  .card {
+    border-radius: 14px;
+    padding: 14px;
+  }
+
+  #exam-section {
+    padding-bottom: calc(84px + env(safe-area-inset-bottom));
+  }
+
+  .exam-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
+    background: rgba(255, 255, 255, 0.98);
+    border-top: 1px solid #d6e2e8;
+    backdrop-filter: blur(8px);
+    z-index: 50;
+  }
 }
