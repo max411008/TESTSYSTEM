@@ -169,7 +169,7 @@ loadDefaultBtn.addEventListener("click", async () => {
 
 loadPg11501Btn.addEventListener("click", async () => {
   try {
-    await loadBankFromFile(PG11501_BANK_URL, shouldReplaceImport(), "內建題庫（品管土建115年1月）");
+    await loadBankFromFile(PG11501_BANK_URL, shouldReplaceImport(), "內建題庫（品管(土建)【115年1月起適用】）");
   } catch (err) {
     loadResult.textContent = `載入失敗：${err.message}`;
   }
