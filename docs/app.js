@@ -210,7 +210,7 @@ function parseCompactTableQuestions(rawText) {
     content = content.replace(/^序號\s*課程名稱\s*題目\s*答案\s*/i, "").trim();
     if (!/\(A\).+\(B\)/i.test(content)) continue;
 
-    const answerMatch = content.match(/(?:[。.!?]|\s)([A-F1-9])\s*$/i);
+    const answerMatch = content.match(/(?:[。.!?]|\s|[)）])([A-F1-9Ａ-Ｆ０-９①②③④⑤⑥⑦⑧⑨])\s*$/i);
     const answer = answerMatch ? normalizeOptionKey(answerMatch[1]) : "";
     if (answerMatch) {
       content = content.slice(0, answerMatch.index).trim();
@@ -319,6 +319,16 @@ function parseQuestionBlocks(rawText) {
         continue;
       }
 
+      // Some table PDFs place the answer in a standalone cell/line.
+      if (!answer && options.length >= 2) {
+        const soloAns = line.match(/^[\s\(（]*([A-F1-9Ａ-Ｆ０-９①②③④⑤⑥⑦⑧⑨])[\s\)）]*$/i);
+        if (soloAns) {
+          answer = normalizeOptionKey(soloAns[1]);
+          currentOptIdx = null;
+          continue;
+        }
+      }
+
       if (currentOptIdx !== null) {
         options[currentOptIdx].text += ` ${line}`;
       } else {
@@ -370,6 +380,16 @@ function parseQuestionBlocks(rawText) {
 
   if (questions.length === 0) {
     return parseCompactTableQuestions(rawText);
+  }
+
+  const compact = parseCompactTableQuestions(rawText);
+  if (compact.length > 0) {
+    const qWithAns = questions.filter((q) => q.answer).length;
+    const cWithAns = compact.filter((q) => q.answer).length;
+    // Prefer compact parser when it clearly recovers more answers.
+    if (cWithAns > qWithAns * 2 && compact.length >= Math.floor(questions.length * 0.5)) {
+      return compact;
+    }
   }
 
   return questions;
