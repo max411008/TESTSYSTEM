@@ -1,13 +1,8 @@
 const BANK_KEY = "questionBankV1";
 const HISTORY_KEY = "examHistoryV1";
-const DEFAULT_BANK_URL = "./default-question-bank.json";
-const PG11501_BANK_URL = "./question-bank-pg11501.json";
+const PCC2690_BANK_URL = "./pcc_2690_questions.json";
 
-const importModeSelect = document.getElementById("import-mode");
-const clearAllBankBtn = document.getElementById("clear-all-bank-btn");
-const loadDefaultBtn = document.getElementById("load-default-btn");
-const loadPg11501Btn = document.getElementById("load-pg11501-btn");
-const loadMixedBtn = document.getElementById("load-mixed-btn");
+const loadPcc2690Btn = document.getElementById("load-pcc2690-btn");
 const loadResult = document.getElementById("load-result");
 
 const bankInfo = document.getElementById("bank-info");
@@ -73,8 +68,53 @@ function refreshBankInfo() {
   bankInfo.textContent = `目前題庫：${bank.length} 題（存在此瀏覽器）`;
 }
 
-function shouldReplaceImport() {
-  return importModeSelect && importModeSelect.value === "replace";
+function parseInlineOptions(questionText) {
+  const text = String(questionText || "")
+    .replace(/（/g, "(")
+    .replace(/）/g, ")")
+    .trim();
+  const matches = [...text.matchAll(/\(([A-F])\)/g)];
+  if (matches.length < 2) return null;
+
+  const stem = text.slice(0, matches[0].index).trim();
+  const options = [];
+  const seenKeys = new Set();
+  for (let i = 0; i < matches.length; i += 1) {
+    const key = matches[i][1].toUpperCase();
+    if (seenKeys.has(key)) continue;
+    const start = matches[i].index + matches[i][0].length;
+    const end = i + 1 < matches.length ? matches[i + 1].index : text.length;
+    const optionText = text
+      .slice(start, end)
+      .replace(/^[\s,，、.。:：;；\-]+/, "")
+      .trim();
+    if (!optionText) continue;
+    options.push({ key, text: optionText });
+    seenKeys.add(key);
+  }
+  if (options.length < 2) return null;
+  return { stem: stem || text, options };
+}
+
+function normalizeQuestion(item, idx) {
+  const parsed = parseInlineOptions(item.question || item.stem || "");
+  const options = Array.isArray(item.options) && item.options.length
+    ? item.options
+        .map((opt) => ({ key: normalizeOptionKey(opt.key), text: String(opt.text || "").trim() }))
+        .filter((opt) => opt.key && opt.text)
+    : parsed
+      ? parsed.options
+      : [];
+
+  return {
+    id: String(item.id || `pcc2690-${item.no || idx + 1}`),
+    no: String(item.no || idx + 1),
+    question: parsed ? parsed.stem : String(item.question || item.stem || "").trim(),
+    options,
+    answer: normalizeOptionKey(item.answer || item.correctAnswer || item.correct || ""),
+    explanation: String(item.explanation || ""),
+    category: String(item.category || ""),
+  };
 }
 
 async function fetchBankJson(url) {
@@ -82,41 +122,17 @@ async function fetchBankJson(url) {
   if (!res.ok) throw new Error("無法載入題庫檔案");
   const data = await res.json();
   if (!Array.isArray(data) || data.length === 0) throw new Error("題庫檔案是空的");
-  return data;
+  const normalized = data.map((item, idx) => normalizeQuestion(item, idx));
+  const valid = normalized.filter((q) => q.question && Array.isArray(q.options) && q.options.length >= 2);
+  if (valid.length === 0) throw new Error("題庫格式不正確，找不到有效題目");
+  return valid;
 }
 
-function mergeBank(current, incoming, replace) {
-  const merged = replace ? [] : [...current];
-  const exists = new Set(merged.map((q) => q.id));
-  let added = 0;
-
-  for (const q of incoming) {
-    if (q && q.id && !exists.has(q.id)) {
-      merged.push(q);
-      exists.add(q.id);
-      added += 1;
-    }
-  }
-  return { merged, added };
-}
-
-async function loadBankFromFile(url, replace = false, label = "內建題庫") {
+async function loadBankFromFile(url, label = "內建題庫") {
   const incoming = await fetchBankJson(url);
-  const current = loadBank();
-  const { merged, added } = mergeBank(current, incoming, replace);
-  saveBank(merged);
+  saveBank(incoming);
   refreshBankInfo();
-  loadResult.textContent = `已載入${label} ${added} 題（總題數 ${merged.length} 題）`;
-}
-
-async function loadMixedBanks(replace = false) {
-  const [bankA, bankB] = await Promise.all([fetchBankJson(DEFAULT_BANK_URL), fetchBankJson(PG11501_BANK_URL)]);
-  const current = loadBank();
-  const source = [...bankA, ...bankB];
-  const { merged, added } = mergeBank(current, source, replace);
-  saveBank(merged);
-  refreshBankInfo();
-  loadResult.textContent = `已載入混合題庫 ${added} 題（總題數 ${merged.length} 題）`;
+  loadResult.textContent = `已載入${label} ${incoming.length} 題（總題數 ${incoming.length} 題）`;
 }
 
 function formatDate(isoText) {
@@ -159,25 +175,9 @@ function renderHistory() {
   });
 }
 
-loadDefaultBtn.addEventListener("click", async () => {
+loadPcc2690Btn.addEventListener("click", async () => {
   try {
-    await loadBankFromFile(DEFAULT_BANK_URL, shouldReplaceImport(), "內建題庫（802396666）");
-  } catch (err) {
-    loadResult.textContent = `載入失敗：${err.message}`;
-  }
-});
-
-loadPg11501Btn.addEventListener("click", async () => {
-  try {
-    await loadBankFromFile(PG11501_BANK_URL, shouldReplaceImport(), "內建題庫（品管(土建)【115年1月起適用】）");
-  } catch (err) {
-    loadResult.textContent = `載入失敗：${err.message}`;
-  }
-});
-
-loadMixedBtn.addEventListener("click", async () => {
-  try {
-    await loadMixedBanks(shouldReplaceImport());
+    await loadBankFromFile(PCC2690_BANK_URL, "內建題庫（品管(土建)2690題，115年1月起適用）");
   } catch (err) {
     loadResult.textContent = `載入失敗：${err.message}`;
   }
@@ -186,7 +186,7 @@ loadMixedBtn.addEventListener("click", async () => {
 startExamBtn.addEventListener("click", () => {
   const bank = loadBank();
   if (bank.length === 0) {
-    alert("題庫是空的，請先載入題庫");
+    alert("題庫是空的，請先載入 2690 題庫");
     return;
   }
 
@@ -256,18 +256,6 @@ clearBankBtn.addEventListener("click", () => {
   resultSection.classList.add("hidden");
   refreshBankInfo();
   alert("題庫已清空");
-});
-
-clearAllBankBtn.addEventListener("click", () => {
-  if (!confirm("確定要先清空總題庫嗎？")) return;
-  saveBank([]);
-  currentExamQuestions = [];
-  currentExamAnswers = {};
-  currentQuestionIndex = 0;
-  examSection.classList.add("hidden");
-  resultSection.classList.add("hidden");
-  refreshBankInfo();
-  loadResult.textContent = "已清空總題庫，現在可以重新載入。";
 });
 
 clearHistoryBtn.addEventListener("click", () => {
@@ -419,7 +407,20 @@ function renderResult(data) {
   });
 }
 
-refreshBankInfo();
+async function bootstrapBank() {
+  if (loadBank().length > 0) {
+    refreshBankInfo();
+    return;
+  }
+  try {
+    await loadBankFromFile(PCC2690_BANK_URL, "內建題庫（品管(土建)2690題，115年1月起適用）");
+  } catch (err) {
+    refreshBankInfo();
+    loadResult.textContent = `自動載入失敗：${err.message}`;
+  }
+}
+
+bootstrapBank();
 renderHistory();
 
 window.addEventListener("resize", () => {
