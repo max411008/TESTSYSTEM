@@ -1,3 +1,10 @@
+import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/build/pdf.min.mjs";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/build/pdf.worker.min.mjs";
+
+const BANK_KEY = "questionBankV1";
+
 const uploadForm = document.getElementById("upload-form");
 const fileInput = document.getElementById("file-input");
 const uploadResult = document.getElementById("upload-result");
@@ -11,126 +18,233 @@ const submitExamBtn = document.getElementById("submit-exam-btn");
 const resultSection = document.getElementById("result-section");
 const scoreDiv = document.getElementById("score");
 const resultList = document.getElementById("result-list");
-const apiBaseInput = document.getElementById("api-base");
-const saveApiBtn = document.getElementById("save-api-btn");
-const apiResult = document.getElementById("api-result");
 
-let currentExamId = "";
-let apiBase = (localStorage.getItem("apiBase") || "").trim();
+let currentExamQuestions = [];
 
-function normalizeBase(url) {
-  return (url || "").trim().replace(/\/+$/, "");
-}
-
-function getApiUrl(path) {
-  const base = normalizeBase(apiBase);
-  if (!base) return path;
-  return `${base}${path}`;
-}
-
-function updateApiHint() {
-  apiResult.textContent = apiBase
-    ? `目前 API：${apiBase}`
-    : "目前 API：使用同網域（本機後端可留空）";
-}
-
-async function fetchJson(path, options = {}) {
-  const url = getApiUrl(path);
-  const res = await fetch(url, options);
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.detail || "請求失敗");
-  return data;
-}
-
-async function fetchBankInfo() {
+function loadBank() {
   try {
-    const data = await fetchJson("/api/questions");
-    bankInfo.textContent = `目前題庫：${data.count} 題`;
-  } catch (err) {
-    bankInfo.textContent = `讀取題庫失敗：${err.message}`;
+    const raw = localStorage.getItem(BANK_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
   }
 }
 
-saveApiBtn.addEventListener("click", async () => {
-  apiBase = normalizeBase(apiBaseInput.value);
-  localStorage.setItem("apiBase", apiBase);
-  updateApiHint();
-  await fetchBankInfo();
-});
+function saveBank(bank) {
+  localStorage.setItem(BANK_KEY, JSON.stringify(bank));
+}
+
+function refreshBankInfo() {
+  const bank = loadBank();
+  bankInfo.textContent = `目前題庫：${bank.length} 題（存在此瀏覽器）`;
+}
+
+function randomId() {
+  return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
+}
+
+function normalizeOptionKey(raw) {
+  const upper = (raw || "").trim().toUpperCase();
+  const match = upper.match(/[A-F]/);
+  return match ? match[0] : upper.slice(0, 1);
+}
+
+function parseQuestionBlocks(rawText) {
+  const text = rawText.replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\n{3,}/g, "\n\n");
+  const blocks = text
+    .split(/\n\s*\n/)
+    .map((b) => b.trim())
+    .filter(Boolean);
+
+  const questions = [];
+
+  for (const block of blocks) {
+    const lines = block
+      .split("\n")
+      .map((ln) => ln.trim())
+      .filter(Boolean);
+
+    if (lines.length < 2) continue;
+
+    const qTextParts = [];
+    const options = [];
+    let answer = "";
+    let explanation = "";
+    let currentOptIdx = null;
+
+    for (const line of lines) {
+      const ansMatch = line.match(/^(?:答案|answer)\s*[:：]\s*([A-Fa-f])/i);
+      const expMatch = line.match(/^(?:解析|explanation)\s*[:：]\s*(.+)/i);
+      const optMatch = line.match(/^([A-Fa-f])[\)\]\.、:：\s-]+(.+)$/);
+
+      if (ansMatch) {
+        answer = normalizeOptionKey(ansMatch[1]);
+        currentOptIdx = null;
+        continue;
+      }
+
+      if (expMatch) {
+        explanation = expMatch[1].trim();
+        currentOptIdx = null;
+        continue;
+      }
+
+      if (optMatch) {
+        options.push({ key: normalizeOptionKey(optMatch[1]), text: optMatch[2].trim() });
+        currentOptIdx = options.length - 1;
+        continue;
+      }
+
+      if (currentOptIdx !== null) {
+        options[currentOptIdx].text += ` ${line}`;
+      } else {
+        const clean = line.replace(/^(?:\d+|Q\d+|題\s*\d+)\s*[\)\]\.、:：-]?\s*/i, "");
+        qTextParts.push(clean);
+      }
+    }
+
+    if (options.length >= 2 && qTextParts.length > 0 && answer) {
+      questions.push({
+        id: randomId(),
+        question: qTextParts.join(" ").trim(),
+        options,
+        answer,
+        explanation,
+      });
+    }
+  }
+
+  return questions;
+}
+
+async function readPdf(file) {
+  const data = new Uint8Array(await file.arrayBuffer());
+  const doc = await pdfjsLib.getDocument({ data }).promise;
+  const parts = [];
+
+  for (let p = 1; p <= doc.numPages; p += 1) {
+    const page = await doc.getPage(p);
+    const content = await page.getTextContent();
+    const pageText = content.items.map((it) => it.str || "").join(" ");
+    parts.push(pageText);
+  }
+
+  return parts.join("\n");
+}
+
+async function readDocx(file) {
+  const buffer = await file.arrayBuffer();
+  const result = await window.mammoth.extractRawText({ arrayBuffer: buffer });
+  return result.value || "";
+}
+
+async function readExcel(file) {
+  const buffer = await file.arrayBuffer();
+  const wb = window.XLSX.read(buffer, { type: "array" });
+  const rows = [];
+
+  for (const sheetName of wb.SheetNames) {
+    rows.push(`### 工作表: ${sheetName}`);
+    const ws = wb.Sheets[sheetName];
+    const data = window.XLSX.utils.sheet_to_json(ws, { header: 1, raw: false });
+    for (const row of data) {
+      const vals = row.map((v) => String(v || "").trim()).filter(Boolean);
+      if (vals.length > 0) rows.push(vals.join(" | "));
+    }
+  }
+
+  return rows.join("\n");
+}
+
+async function extractText(file) {
+  const ext = file.name.toLowerCase().split(".").pop();
+
+  if (ext === "txt") return file.text();
+  if (ext === "pdf") return readPdf(file);
+  if (ext === "docx") return readDocx(file);
+  if (ext === "xlsx" || ext === "xls") return readExcel(file);
+
+  throw new Error("不支援的檔案格式");
+}
 
 uploadForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const file = fileInput.files[0];
   if (!file) return;
 
-  const fd = new FormData();
-  fd.append("file", file);
-
   uploadResult.textContent = "上傳與解析中...";
 
   try {
-    const url = getApiUrl("/api/upload");
-    const res = await fetch(url, { method: "POST", body: fd });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || "上傳失敗");
-    uploadResult.textContent = `成功新增 ${data.added_count} 題，總題數 ${data.total_count} 題`;
-    await fetchBankInfo();
+    const text = await extractText(file);
+    const parsed = parseQuestionBlocks(text);
+    if (parsed.length === 0) {
+      throw new Error("沒有抽出有效題目，請確認有題幹、選項(A/B/...)與答案欄位");
+    }
+
+    const bank = loadBank();
+    bank.push(...parsed);
+    saveBank(bank);
+
+    uploadResult.textContent = `成功新增 ${parsed.length} 題，總題數 ${bank.length} 題`;
+    refreshBankInfo();
   } catch (err) {
     uploadResult.textContent = `失敗：${err.message}`;
   }
 });
 
-startExamBtn.addEventListener("click", async () => {
-  const count = Number(examCountInput.value || 10);
-
-  try {
-    const data = await fetchJson("/api/exam/start", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ count }),
-    });
-
-    currentExamId = data.exam_id;
-    renderExam(data.questions);
-    examSection.classList.remove("hidden");
-    resultSection.classList.add("hidden");
-  } catch (err) {
-    alert(`開始失敗：${err.message}`);
+startExamBtn.addEventListener("click", () => {
+  const bank = loadBank();
+  if (bank.length === 0) {
+    alert("題庫是空的，請先上傳題目");
+    return;
   }
+
+  const count = Math.max(1, Math.min(Number(examCountInput.value || 10), bank.length));
+  const shuffled = [...bank].sort(() => Math.random() - 0.5);
+  currentExamQuestions = shuffled.slice(0, count);
+
+  renderExam(currentExamQuestions);
+  examSection.classList.remove("hidden");
+  resultSection.classList.add("hidden");
 });
 
-submitExamBtn.addEventListener("click", async () => {
+submitExamBtn.addEventListener("click", () => {
   const answers = {};
   const radios = examForm.querySelectorAll("input[type='radio']:checked");
   radios.forEach((r) => {
     answers[r.name] = r.value;
   });
 
-  try {
-    const data = await fetchJson("/api/exam/submit", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ exam_id: currentExamId, answers }),
-    });
+  let correct = 0;
+  const details = currentExamQuestions.map((q) => {
+    const yourAnswer = normalizeOptionKey(answers[q.id] || "");
+    const correctAnswer = normalizeOptionKey(q.answer || "");
+    const isCorrect = yourAnswer && yourAnswer === correctAnswer;
+    if (isCorrect) correct += 1;
 
-    renderResult(data);
-  } catch (err) {
-    alert(`交卷失敗：${err.message}`);
-  }
+    return {
+      question: q.question,
+      yourAnswer,
+      correctAnswer,
+      isCorrect,
+      explanation: q.explanation || "",
+    };
+  });
+
+  const total = currentExamQuestions.length;
+  const score = total ? Math.round((correct / total) * 10000) / 100 : 0;
+  renderResult({ score, correct, total, details });
 });
 
-clearBankBtn.addEventListener("click", async () => {
+clearBankBtn.addEventListener("click", () => {
   if (!confirm("確定要清空題庫嗎？")) return;
 
-  try {
-    const data = await fetchJson("/api/questions/clear", { method: "POST" });
-    alert(data.message || "已清空");
-    await fetchBankInfo();
-    examSection.classList.add("hidden");
-    resultSection.classList.add("hidden");
-  } catch (err) {
-    alert(`清空失敗：${err.message}`);
-  }
+  saveBank([]);
+  currentExamQuestions = [];
+  examSection.classList.add("hidden");
+  resultSection.classList.add("hidden");
+  refreshBankInfo();
+  alert("題庫已清空");
 });
 
 function renderExam(questions) {
@@ -170,20 +284,19 @@ function renderResult(data) {
     const div = document.createElement("div");
     div.className = "question";
 
-    const stateClass = item.is_correct ? "result-ok" : "result-bad";
-    const stateText = item.is_correct ? "答對" : "答錯";
+    const stateClass = item.isCorrect ? "result-ok" : "result-bad";
+    const stateText = item.isCorrect ? "答對" : "答錯";
 
     div.innerHTML = `
       <p><strong>${idx + 1}. ${item.question}</strong></p>
       <p class="${stateClass}">${stateText}</p>
-      <p>你的答案：${item.your_answer || "(未作答)"}</p>
-      <p>正確答案：${item.correct_answer || "(未設定)"}</p>
+      <p>你的答案：${item.yourAnswer || "(未作答)"}</p>
+      <p>正確答案：${item.correctAnswer || "(未設定)"}</p>
       <p>解析：${item.explanation || "(無)"}</p>
     `;
+
     resultList.appendChild(div);
   });
 }
 
-apiBaseInput.value = apiBase;
-updateApiHint();
-fetchBankInfo();
+refreshBankInfo();

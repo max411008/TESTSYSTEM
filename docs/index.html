@@ -11,16 +11,9 @@
       <h1>智慧題庫模擬考系統</h1>
 
       <section class="card">
-        <h2>API 設定（GitHub Pages 必填）</h2>
-        <p>請輸入你的後端網址，例如：<code>https://your-backend.onrender.com</code></p>
-        <input id="api-base" type="url" placeholder="https://your-backend.onrender.com" />
-        <button id="save-api-btn" type="button">儲存 API 網址</button>
-        <div id="api-result" class="hint"></div>
-      </section>
-
-      <section class="card">
         <h2>1) 上傳題庫檔案</h2>
         <p>支援 Word(.docx) / PDF(.pdf) / Excel(.xlsx/.xls) / TXT(.txt)</p>
+        <p class="hint">資料只存你自己的瀏覽器，不需要後端網址。</p>
         <form id="upload-form">
           <input id="file-input" type="file" accept=".pdf,.docx,.xlsx,.xls,.txt" required />
           <button type="submit">上傳並抽題</button>
@@ -32,8 +25,8 @@
         <h2>2) 建立模擬考</h2>
         <label for="exam-count">題數：</label>
         <input id="exam-count" type="number" min="1" value="10" />
-        <button id="start-exam-btn">開始考試</button>
-        <button id="clear-bank-btn" class="danger">清空題庫</button>
+        <button id="start-exam-btn" type="button">開始考試</button>
+        <button id="clear-bank-btn" class="danger" type="button">清空題庫</button>
         <div id="bank-info" class="hint"></div>
       </section>
 
@@ -50,6 +43,8 @@
       </section>
     </main>
 
-    <script src="./app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="./app.js" type="module"></script>
   </body>
 </html>
