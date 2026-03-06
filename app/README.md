@@ -59,3 +59,13 @@ D) 6
 - 增加分類、難度、章節標籤
 - 錯題本與複習排程
 - 使用者登入與多人題庫
+
+## 6. GitHub Pages 前端
+
+此專案已提供 `docs/` 靜態前端與 `.github/workflows/deploy-pages.yml` 自動部署流程。
+
+- Pages 網址（此 repo）：
+  - `https://max411008.github.io/TESTSYSTEM/`
+- 注意：
+  - GitHub Pages 只能放前端，後端 API 需另外部署（例如 Render/Railway/Fly.io）。
+  - 進入 Page 後先在「API 設定」輸入你的後端網址。
