@@ -529,15 +529,12 @@ authSignupBtn.addEventListener("click", async () => {
   }
   try {
     await createUserWithEmailAndPassword(auth, toInternalEmail(username), password);
-    setSyncStatus("註冊成功，正在同步...");
+    await signOut(auth);
+    setAuthStatus("尚未登入");
+    setSyncStatus("註冊完成，請重新登入帳號");
   } catch (err) {
     if (err && err.code === "auth/email-already-in-use") {
-      try {
-        await signInWithEmailAndPassword(auth, toInternalEmail(username), password);
-        setSyncStatus("帳號已存在，已自動登入並同步");
-      } catch (loginErr) {
-        alert(`帳號已存在，但自動登入失敗：${loginErr.message}`);
-      }
+      alert("帳號已存在，請直接登入");
       return;
     }
     alert(`註冊失敗：${err.message}`);
