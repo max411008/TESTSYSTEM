@@ -5,9 +5,11 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
 
 const BANK_KEY = "questionBankV1";
 const HISTORY_KEY = "examHistoryV1";
+const DEFAULT_BANK_URL = "./default-question-bank.json";
 
 const uploadForm = document.getElementById("upload-form");
 const fileInput = document.getElementById("file-input");
+const loadDefaultBtn = document.getElementById("load-default-btn");
 const uploadResult = document.getElementById("upload-result");
 const bankInfo = document.getElementById("bank-info");
 const examCountInput = document.getElementById("exam-count");
@@ -64,6 +66,28 @@ function saveHistory(history) {
 function refreshBankInfo() {
   const bank = loadBank();
   bankInfo.textContent = `目前題庫：${bank.length} 題（存在此瀏覽器）`;
+}
+
+async function loadDefaultBank(replace = false) {
+  const res = await fetch(DEFAULT_BANK_URL, { cache: "no-cache" });
+  if (!res.ok) throw new Error("無法載入內建題庫檔案");
+  const data = await res.json();
+  if (!Array.isArray(data) || data.length === 0) throw new Error("內建題庫為空");
+
+  const current = loadBank();
+  const merged = replace ? [] : [...current];
+  const exists = new Set(merged.map((q) => q.id));
+  let added = 0;
+  for (const q of data) {
+    if (q && q.id && !exists.has(q.id)) {
+      merged.push(q);
+      exists.add(q.id);
+      added += 1;
+    }
+  }
+  saveBank(merged);
+  refreshBankInfo();
+  uploadResult.textContent = `已載入內建題庫 ${added} 題（總題數 ${merged.length} 題）`;
 }
 
 function formatDate(isoText) {
@@ -372,6 +396,14 @@ uploadForm.addEventListener("submit", async (e) => {
   }
 });
 
+loadDefaultBtn.addEventListener("click", async () => {
+  try {
+    await loadDefaultBank(false);
+  } catch (err) {
+    uploadResult.textContent = `載入失敗：${err.message}`;
+  }
+});
+
 startExamBtn.addEventListener("click", () => {
   const bank = loadBank();
   if (bank.length === 0) {
@@ -596,6 +628,12 @@ function renderResult(data) {
 
 refreshBankInfo();
 renderHistory();
+
+if (loadBank().length === 0) {
+  loadDefaultBank(false).catch((err) => {
+    uploadResult.textContent = `自動載入內建題庫失敗：${err.message}`;
+  });
+}
 
 window.addEventListener("resize", () => {
   if (!examSection.classList.contains("hidden") && currentExamQuestions.length > 0) {
