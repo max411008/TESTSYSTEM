@@ -6,12 +6,14 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
 const BANK_KEY = "questionBankV1";
 const HISTORY_KEY = "examHistoryV1";
 const DEFAULT_BANK_URL = "./default-question-bank.json";
+const PG11501_BANK_URL = "./question-bank-pg11501.json";
 
 const uploadForm = document.getElementById("upload-form");
 const fileInput = document.getElementById("file-input");
 const importModeSelect = document.getElementById("import-mode");
 const clearAllBankBtn = document.getElementById("clear-all-bank-btn");
 const loadDefaultBtn = document.getElementById("load-default-btn");
+const loadPg11501Btn = document.getElementById("load-pg11501-btn");
 const uploadResult = document.getElementById("upload-result");
 const bankInfo = document.getElementById("bank-info");
 const examCountInput = document.getElementById("exam-count");
@@ -74,8 +76,8 @@ function shouldReplaceImport() {
   return importModeSelect && importModeSelect.value === "replace";
 }
 
-async function loadDefaultBank(replace = false) {
-  const res = await fetch(DEFAULT_BANK_URL, { cache: "no-cache" });
+async function loadBankFromFile(url, replace = false, label = "內建題庫") {
+  const res = await fetch(url, { cache: "no-cache" });
   if (!res.ok) throw new Error("無法載入內建題庫檔案");
   const data = await res.json();
   if (!Array.isArray(data) || data.length === 0) throw new Error("內建題庫為空");
@@ -93,7 +95,11 @@ async function loadDefaultBank(replace = false) {
   }
   saveBank(merged);
   refreshBankInfo();
-  uploadResult.textContent = `已載入內建題庫 ${added} 題（總題數 ${merged.length} 題）`;
+  uploadResult.textContent = `已載入${label} ${added} 題（總題數 ${merged.length} 題）`;
+}
+
+async function loadDefaultBank(replace = false) {
+  return loadBankFromFile(DEFAULT_BANK_URL, replace, "內建題庫（802396666）");
 }
 
 function formatDate(isoText) {
@@ -544,6 +550,14 @@ uploadForm.addEventListener("submit", async (e) => {
 loadDefaultBtn.addEventListener("click", async () => {
   try {
     await loadDefaultBank(shouldReplaceImport());
+  } catch (err) {
+    uploadResult.textContent = `載入失敗：${err.message}`;
+  }
+});
+
+loadPg11501Btn.addEventListener("click", async () => {
+  try {
+    await loadBankFromFile(PG11501_BANK_URL, shouldReplaceImport(), "內建題庫（品管土建115年1月）");
   } catch (err) {
     uploadResult.textContent = `載入失敗：${err.message}`;
   }
