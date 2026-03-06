@@ -154,6 +154,20 @@ select {
   position: relative;
 }
 
+.option-preview {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.option-preview li {
+  margin: 4px 0;
+}
+
+.option-preview li.option-answer {
+  color: var(--ok);
+  font-weight: 700;
+}
+
 .wrong-mark {
   position: absolute;
   right: 12px;

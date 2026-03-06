@@ -338,6 +338,34 @@ function formatDate(isoText) {
   return date.toLocaleString("zh-TW", { hour12: false });
 }
 
+function escapeHtml(raw) {
+  return String(raw || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function buildOptionPreviewHtml(q) {
+  const options = Array.isArray(q.options) ? q.options : [];
+  if (options.length === 0) {
+    return `<p class="hint">此題沒有選項資料</p>`;
+  }
+
+  const answer = normalizeOptionKey(q.answer || "");
+  const optionLines = options
+    .map((opt) => {
+      const key = normalizeOptionKey(opt.key || "");
+      const text = escapeHtml(opt.text || "");
+      const isAnswer = answer && key === answer;
+      return `<li class="${isAnswer ? "option-answer" : ""}">${escapeHtml(key)}. ${text}${isAnswer ? " ✅" : ""}</li>`;
+    })
+    .join("");
+
+  return `<ul class="option-preview">${optionLines}</ul>`;
+}
+
 function renderHistory() {
   const history = loadHistory();
   if (history.length === 0) {
@@ -401,8 +429,9 @@ function renderStarred() {
     const box = document.createElement("div");
     box.className = "question";
     box.innerHTML = `
-      <p><strong>${idx + 1}. ${q.question}</strong></p>
-      <p class="hint">題號：${q.no || q.id} | 答案：${q.answer || "(未設定)"}</p>
+      <p><strong>${idx + 1}. ${escapeHtml(q.question)}</strong></p>
+      <p class="hint">題號：${escapeHtml(q.no || q.id)} | 答案：${escapeHtml(q.answer || "(未設定)")}</p>
+      ${buildOptionPreviewHtml(q)}
     `;
 
     const unstarBtn = document.createElement("button");
@@ -433,8 +462,9 @@ function renderWrong() {
     const box = document.createElement("div");
     box.className = "question";
     box.innerHTML = `
-      <p><strong>${idx + 1}. ${q.question}</strong></p>
-      <p class="hint">題號：${q.no || q.id} | 答案：${q.answer || "(未設定)"}</p>
+      <p><strong>${idx + 1}. ${escapeHtml(q.question)}</strong></p>
+      <p class="hint">題號：${escapeHtml(q.no || q.id)} | 答案：${escapeHtml(q.answer || "(未設定)")}</p>
+      ${buildOptionPreviewHtml(q)}
     `;
 
     const mark = document.createElement("span");
