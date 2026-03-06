@@ -17,7 +17,7 @@ const PCC2690_BANK_URL = "./pcc_2690_questions.json";
 
 const authStatus = document.getElementById("auth-status");
 const syncStatus = document.getElementById("sync-status");
-const authEmailInput = document.getElementById("auth-email");
+const authUsernameInput = document.getElementById("auth-username");
 const authPasswordInput = document.getElementById("auth-password");
 const authSignupBtn = document.getElementById("auth-signup-btn");
 const authLoginBtn = document.getElementById("auth-login-btn");
@@ -89,7 +89,7 @@ async function pushCloudState(reason = "") {
     await setDoc(
       cloudDocRef(currentUser.uid),
       {
-        email: currentUser.email || "",
+        username: fromInternalEmail(currentUser.email || ""),
         history: loadHistory(),
         starredIds: loadStarredIds(),
         wrongIds: loadWrongIds(),
@@ -131,9 +131,20 @@ async function pullCloudState() {
 }
 
 function getAuthFormValue() {
-  const email = String(authEmailInput.value || "").trim();
+  const username = String(authUsernameInput.value || "")
+    .trim()
+    .toLowerCase();
   const password = String(authPasswordInput.value || "");
-  return { email, password };
+  return { username, password };
+}
+
+function toInternalEmail(username) {
+  return `${username}@testsystem.local`;
+}
+
+function fromInternalEmail(emailText) {
+  const email = String(emailText || "");
+  return email.endsWith("@testsystem.local") ? email.replace("@testsystem.local", "") : email;
 }
 
 async function setupCloudAuth() {
@@ -155,7 +166,7 @@ async function setupCloudAuth() {
       return;
     }
 
-    setAuthStatus(`已登入：${currentUser.email || currentUser.uid}`);
+    setAuthStatus(`已登入：${fromInternalEmail(currentUser.email) || currentUser.uid}`);
     await pullCloudState();
   });
 }
@@ -477,9 +488,13 @@ authSignupBtn.addEventListener("click", async () => {
     alert("尚未設定 Firebase，請先填寫 firebase-config.js");
     return;
   }
-  const { email, password } = getAuthFormValue();
-  if (!email || !password) {
-    alert("請輸入 Email 與密碼");
+  const { username, password } = getAuthFormValue();
+  if (!username || !password) {
+    alert("請輸入帳號與密碼");
+    return;
+  }
+  if (!/^[a-z0-9._-]{3,32}$/.test(username)) {
+    alert("帳號格式錯誤：限 3-32 字元，可用小寫英數與 . _ -");
     return;
   }
   if (password.length < 6) {
@@ -487,7 +502,7 @@ authSignupBtn.addEventListener("click", async () => {
     return;
   }
   try {
-    await createUserWithEmailAndPassword(auth, email, password);
+    await createUserWithEmailAndPassword(auth, toInternalEmail(username), password);
     setSyncStatus("註冊成功，正在同步...");
   } catch (err) {
     alert(`註冊失敗：${err.message}`);
@@ -499,13 +514,13 @@ authLoginBtn.addEventListener("click", async () => {
     alert("尚未設定 Firebase，請先填寫 firebase-config.js");
     return;
   }
-  const { email, password } = getAuthFormValue();
-  if (!email || !password) {
-    alert("請輸入 Email 與密碼");
+  const { username, password } = getAuthFormValue();
+  if (!username || !password) {
+    alert("請輸入帳號與密碼");
     return;
   }
   try {
-    await signInWithEmailAndPassword(auth, email, password);
+    await signInWithEmailAndPassword(auth, toInternalEmail(username), password);
     setSyncStatus("登入成功，正在同步...");
   } catch (err) {
     alert(`登入失敗：${err.message}`);
