@@ -6,7 +6,7 @@ import {
   signInWithEmailAndPassword,
   signOut,
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-import { doc, getDoc, getFirestore, setDoc } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import { get, getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 import { firebaseConfig, hasFirebaseConfig } from "./firebase-config.js";
 
 const BANK_KEY = "questionBankV1";
@@ -79,24 +79,20 @@ function setAuthStatus(text) {
   authStatus.textContent = text;
 }
 
-function cloudDocRef(uid) {
-  return doc(db, "users", uid, "study", "state");
+function cloudStateRef(uid) {
+  return ref(db, `users/${uid}/study/state`);
 }
 
 async function pushCloudState(reason = "") {
   if (!db || !currentUser || isApplyingRemoteState) return;
   try {
-    await setDoc(
-      cloudDocRef(currentUser.uid),
-      {
-        username: fromInternalEmail(currentUser.email || ""),
-        history: loadHistory(),
-        starredIds: loadStarredIds(),
-        wrongIds: loadWrongIds(),
-        updatedAt: new Date().toISOString(),
-      },
-      { merge: true }
-    );
+    await set(cloudStateRef(currentUser.uid), {
+      username: fromInternalEmail(currentUser.email || ""),
+      history: loadHistory(),
+      starredIds: loadStarredIds(),
+      wrongIds: loadWrongIds(),
+      updatedAt: new Date().toISOString(),
+    });
     setSyncStatus(`已同步雲端${reason ? `（${reason}）` : ""}`);
   } catch (err) {
     setSyncStatus(`同步失敗：${err.message}`);
@@ -107,13 +103,13 @@ async function pullCloudState() {
   if (!db || !currentUser) return;
   try {
     setSyncStatus("同步中...");
-    const snap = await getDoc(cloudDocRef(currentUser.uid));
+    const snap = await get(cloudStateRef(currentUser.uid));
     if (!snap.exists()) {
       await pushCloudState("建立雲端資料");
       return;
     }
 
-    const data = snap.data() || {};
+    const data = snap.val() || {};
     isApplyingRemoteState = true;
     saveHistory(Array.isArray(data.history) ? data.history : []);
     saveStarredIds(Array.isArray(data.starredIds) ? data.starredIds : []);
@@ -156,7 +152,7 @@ async function setupCloudAuth() {
 
   const app = initializeApp(firebaseConfig);
   auth = getAuth(app);
-  db = getFirestore(app);
+  db = getDatabase(app);
 
   onAuthStateChanged(auth, async (user) => {
     currentUser = user || null;
