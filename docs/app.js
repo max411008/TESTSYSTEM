@@ -1,5 +1,6 @@
 const BANK_KEY = "questionBankV1";
 const HISTORY_KEY = "examHistoryV1";
+const STARRED_KEY = "starredQuestionIdsV1";
 const PCC2690_BANK_URL = "./pcc_2690_questions.json";
 
 const loadPcc2690Btn = document.getElementById("load-pcc2690-btn");
@@ -8,6 +9,7 @@ const loadResult = document.getElementById("load-result");
 const bankInfo = document.getElementById("bank-info");
 const examCountInput = document.getElementById("exam-count");
 const startExamBtn = document.getElementById("start-exam-btn");
+const startStarredExamBtn = document.getElementById("start-starred-exam-btn");
 const clearBankBtn = document.getElementById("clear-bank-btn");
 const examSection = document.getElementById("exam-section");
 const examProgress = document.getElementById("exam-progress");
@@ -22,6 +24,9 @@ const resultList = document.getElementById("result-list");
 const historySummary = document.getElementById("history-summary");
 const historyList = document.getElementById("history-list");
 const clearHistoryBtn = document.getElementById("clear-history-btn");
+const starredSummary = document.getElementById("starred-summary");
+const clearStarredBtn = document.getElementById("clear-starred-btn");
+const starredList = document.getElementById("starred-list");
 
 let currentExamQuestions = [];
 let currentExamAnswers = {};
@@ -61,6 +66,35 @@ function loadHistory() {
 
 function saveHistory(history) {
   localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+}
+
+function loadStarredIds() {
+  try {
+    const raw = localStorage.getItem(STARRED_KEY);
+    const ids = raw ? JSON.parse(raw) : [];
+    return Array.isArray(ids) ? ids : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveStarredIds(ids) {
+  localStorage.setItem(STARRED_KEY, JSON.stringify(ids));
+}
+
+function isStarred(questionId) {
+  return loadStarredIds().includes(questionId);
+}
+
+function toggleStar(questionId) {
+  const ids = loadStarredIds();
+  const exists = ids.includes(questionId);
+  const next = exists ? ids.filter((id) => id !== questionId) : [...ids, questionId];
+  saveStarredIds(next);
+  renderStarred();
+  if (!examSection.classList.contains("hidden") && currentExamQuestions.length > 0) {
+    renderExam(currentExamQuestions);
+  }
 }
 
 function refreshBankInfo() {
@@ -175,23 +209,51 @@ function renderHistory() {
   });
 }
 
-loadPcc2690Btn.addEventListener("click", async () => {
-  try {
-    await loadBankFromFile(PCC2690_BANK_URL, "內建題庫（品管(土建)2690題，115年1月起適用）");
-  } catch (err) {
-    loadResult.textContent = `載入失敗：${err.message}`;
-  }
-});
-
-startExamBtn.addEventListener("click", () => {
+function getStarredQuestions() {
   const bank = loadBank();
-  if (bank.length === 0) {
-    alert("題庫是空的，請先載入 2690 題庫");
+  const idSet = new Set(loadStarredIds());
+  return bank.filter((q) => idSet.has(q.id));
+}
+
+function renderStarred() {
+  const starred = getStarredQuestions();
+  starredSummary.textContent = `已標記星號：${starred.length} 題`;
+  starredList.innerHTML = "";
+
+  if (starred.length === 0) {
+    const hint = document.createElement("p");
+    hint.className = "hint";
+    hint.textContent = "目前沒有星號題目。";
+    starredList.appendChild(hint);
     return;
   }
 
-  const count = Math.max(1, Math.min(Number(examCountInput.value || 10), bank.length));
-  const shuffled = [...bank].sort(() => Math.random() - 0.5);
+  starred.forEach((q, idx) => {
+    const box = document.createElement("div");
+    box.className = "question";
+    box.innerHTML = `
+      <p><strong>${idx + 1}. ${q.question}</strong></p>
+      <p class="hint">題號：${q.no || q.id} | 答案：${q.answer || "(未設定)"}</p>
+    `;
+
+    const unstarBtn = document.createElement("button");
+    unstarBtn.type = "button";
+    unstarBtn.className = "star-toggle active";
+    unstarBtn.textContent = "取消星號";
+    unstarBtn.addEventListener("click", () => toggleStar(q.id));
+
+    box.appendChild(unstarBtn);
+    starredList.appendChild(box);
+  });
+}
+
+function startExamFromPool(pool, emptyMessage) {
+  if (pool.length === 0) {
+    alert(emptyMessage);
+    return;
+  }
+  const count = Math.max(1, Math.min(Number(examCountInput.value || 10), pool.length));
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
   currentExamQuestions = shuffled.slice(0, count);
   currentExamAnswers = {};
   currentQuestionIndex = 0;
@@ -199,6 +261,25 @@ startExamBtn.addEventListener("click", () => {
   renderExam(currentExamQuestions);
   examSection.classList.remove("hidden");
   resultSection.classList.add("hidden");
+}
+
+loadPcc2690Btn.addEventListener("click", async () => {
+  try {
+    await loadBankFromFile(PCC2690_BANK_URL, "內建題庫（品管(土建)2690題，115年1月起適用）");
+    renderStarred();
+  } catch (err) {
+    loadResult.textContent = `載入失敗：${err.message}`;
+  }
+});
+
+startExamBtn.addEventListener("click", () => {
+  const bank = loadBank();
+  startExamFromPool(bank, "題庫是空的，請先載入 2690 題庫");
+});
+
+startStarredExamBtn.addEventListener("click", () => {
+  const starred = getStarredQuestions();
+  startExamFromPool(starred, "目前沒有星號題目，請先在作答區打星號");
 });
 
 submitExamBtn.addEventListener("click", () => {
@@ -255,6 +336,7 @@ clearBankBtn.addEventListener("click", () => {
   examSection.classList.add("hidden");
   resultSection.classList.add("hidden");
   refreshBankInfo();
+  renderStarred();
   alert("題庫已清空");
 });
 
@@ -263,6 +345,12 @@ clearHistoryBtn.addEventListener("click", () => {
   saveHistory([]);
   renderHistory();
   alert("考試紀錄已清空");
+});
+
+clearStarredBtn.addEventListener("click", () => {
+  if (!confirm("確定要清空所有星號註記嗎？")) return;
+  saveStarredIds([]);
+  renderStarred();
 });
 
 prevQuestionBtn.addEventListener("click", () => {
@@ -302,9 +390,21 @@ function renderExamPhone(questions) {
   const box = document.createElement("div");
   box.className = "question";
 
+  const header = document.createElement("div");
+  header.className = "question-header";
+
   const title = document.createElement("p");
   title.textContent = `${safeIndex + 1}. ${q.question}`;
-  box.appendChild(title);
+  header.appendChild(title);
+
+  const starBtn = document.createElement("button");
+  starBtn.type = "button";
+  starBtn.className = `star-toggle${isStarred(q.id) ? " active" : ""}`;
+  starBtn.textContent = isStarred(q.id) ? "★ 已星號" : "☆ 星號";
+  starBtn.addEventListener("click", () => toggleStar(q.id));
+  header.appendChild(starBtn);
+
+  box.appendChild(header);
 
   q.options.forEach((opt) => {
     const label = document.createElement("label");
@@ -338,9 +438,21 @@ function renderExamDesktop(questions) {
     const box = document.createElement("div");
     box.className = "question";
 
+    const header = document.createElement("div");
+    header.className = "question-header";
+
     const title = document.createElement("p");
     title.textContent = `${idx + 1}. ${q.question}`;
-    box.appendChild(title);
+    header.appendChild(title);
+
+    const starBtn = document.createElement("button");
+    starBtn.type = "button";
+    starBtn.className = `star-toggle${isStarred(q.id) ? " active" : ""}`;
+    starBtn.textContent = isStarred(q.id) ? "★ 已星號" : "☆ 星號";
+    starBtn.addEventListener("click", () => toggleStar(q.id));
+    header.appendChild(starBtn);
+
+    box.appendChild(header);
 
     q.options.forEach((opt) => {
       const label = document.createElement("label");
@@ -410,12 +522,15 @@ function renderResult(data) {
 async function bootstrapBank() {
   if (loadBank().length > 0) {
     refreshBankInfo();
+    renderStarred();
     return;
   }
   try {
     await loadBankFromFile(PCC2690_BANK_URL, "內建題庫（品管(土建)2690題，115年1月起適用）");
+    renderStarred();
   } catch (err) {
     refreshBankInfo();
+    renderStarred();
     loadResult.textContent = `自動載入失敗：${err.message}`;
   }
 }

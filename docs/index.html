@@ -22,6 +22,7 @@
         <label for="exam-count">題數：</label>
         <input id="exam-count" type="number" min="1" value="10" />
         <button id="start-exam-btn" type="button">開始考試</button>
+        <button id="start-starred-exam-btn" type="button">只刷星號題</button>
         <button id="clear-bank-btn" class="danger" type="button">清空題庫</button>
         <div id="bank-info" class="hint"></div>
       </section>
@@ -41,6 +42,13 @@
         <h2>成績與解析</h2>
         <div id="score"></div>
         <div id="result-list"></div>
+      </section>
+
+      <section class="card">
+        <h2>星號註記題目</h2>
+        <div id="starred-summary" class="hint"></div>
+        <button id="clear-starred-btn" class="danger" type="button">清空所有星號</button>
+        <div id="starred-list"></div>
       </section>
 
       <section class="card">
