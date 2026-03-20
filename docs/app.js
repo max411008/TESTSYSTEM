@@ -28,6 +28,7 @@ const loadResult = document.getElementById("load-result");
 
 const bankInfo = document.getElementById("bank-info");
 const examCountInput = document.getElementById("exam-count");
+const shuffleOptionsToggle = document.getElementById("shuffle-options-toggle");
 const startExamBtn = document.getElementById("start-exam-btn");
 const startWrongExamBtn = document.getElementById("start-wrong-exam-btn");
 const startStarredExamBtn = document.getElementById("start-starred-exam-btn");
@@ -490,13 +491,29 @@ function startExamFromPool(pool, emptyMessage) {
   }
   const count = Math.max(1, Math.min(Number(examCountInput.value || 10), pool.length));
   const shuffled = [...pool].sort(() => Math.random() - 0.5);
-  currentExamQuestions = shuffled.slice(0, count);
+  const selected = shuffled.slice(0, count);
+  currentExamQuestions = shouldShuffleOptions()
+    ? selected.map((q) => ({ ...q, options: shuffleArray(q.options || []) }))
+    : selected.map((q) => ({ ...q, options: [...(q.options || [])] }));
   currentExamAnswers = {};
   currentQuestionIndex = 0;
 
   renderExam(currentExamQuestions);
   examSection.classList.remove("hidden");
   resultSection.classList.add("hidden");
+}
+
+function shouldShuffleOptions() {
+  return Boolean(shuffleOptionsToggle && shuffleOptionsToggle.checked);
+}
+
+function shuffleArray(items) {
+  const arr = [...items];
+  for (let i = arr.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
 }
 
 loadPcc2690Btn.addEventListener("click", async () => {
