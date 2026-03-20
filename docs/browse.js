@@ -11,6 +11,8 @@ const pageInput = document.getElementById("browse-page-input");
 const jumpBtn = document.getElementById("browse-jump-btn");
 const prevBtn = document.getElementById("browse-prev-btn");
 const nextBtn = document.getElementById("browse-next-btn");
+const scrollTopBtn = document.getElementById("scroll-top-btn");
+const scrollBottomBtn = document.getElementById("scroll-bottom-btn");
 const filterAllBtn = document.getElementById("filter-all-btn");
 const filterStarredBtn = document.getElementById("filter-starred-btn");
 const filterWrongBtn = document.getElementById("filter-wrong-btn");
@@ -278,6 +280,14 @@ pageInput.addEventListener("keydown", (event) => {
     event.preventDefault();
     jumpToPage();
   }
+});
+
+scrollTopBtn.addEventListener("click", () => {
+  window.scrollTo({ top: 0, behavior: "smooth" });
+});
+
+scrollBottomBtn.addEventListener("click", () => {
+  window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
 });
 
 window.addEventListener("resize", () => {
