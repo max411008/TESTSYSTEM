@@ -546,6 +546,17 @@ function getUnansweredQuestionIndexes() {
 function jumpToQuestion(index) {
   if (index < 0 || index >= currentExamQuestions.length) return;
   currentQuestionIndex = index;
+  if (isPhoneLayout()) {
+    renderExam(currentExamQuestions);
+    return;
+  }
+
+  const target = document.getElementById(`exam-question-${index}`);
+  if (target) {
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+
   renderExam(currentExamQuestions);
 }
 
@@ -662,7 +673,14 @@ startStarredWrongExamBtn.addEventListener("click", () => {
 submitExamBtn.addEventListener("click", () => {
   const unansweredIndexes = getUnansweredQuestionIndexes();
   if (unansweredIndexes.length > 0) {
-    const shouldSubmit = confirm(`還有 ${unansweredIndexes.length} 題未作答，確定要交卷嗎？`);
+    const unansweredNumbers = unansweredIndexes.map((idx) => idx + 1);
+    const previewNumbers =
+      unansweredNumbers.length > 12
+        ? `${unansweredNumbers.slice(0, 12).join("、")}...`
+        : unansweredNumbers.join("、");
+    const shouldSubmit = confirm(
+      `還有 ${unansweredIndexes.length} 題未作答。\n未作答題號：${previewNumbers}\n確定要交卷嗎？`
+    );
     if (!shouldSubmit) {
       jumpToQuestion(unansweredIndexes[0]);
       return;
@@ -766,7 +784,14 @@ nextQuestionBtn.addEventListener("click", () => {
 });
 
 jumpQuestionBtn.addEventListener("click", () => {
-  const target = Math.max(1, Math.min(Number(jumpQuestionInput.value || 1), currentExamQuestions.length));
+  if (currentExamQuestions.length === 0) return;
+  const parsed = Number(jumpQuestionInput.value || 0);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    alert(`請輸入 1 到 ${currentExamQuestions.length} 的題號`);
+    jumpQuestionInput.value = String(currentQuestionIndex + 1);
+    return;
+  }
+  const target = Math.max(1, Math.min(parsed, currentExamQuestions.length));
   jumpToQuestion(target - 1);
 });
 
@@ -799,6 +824,7 @@ function renderExamPhone(questions) {
   examForm.innerHTML = "";
   const box = document.createElement("div");
   box.className = "question";
+  box.id = `exam-question-${safeIndex}`;
 
   const header = document.createElement("div");
   header.className = "question-header";
@@ -847,6 +873,7 @@ function renderExamDesktop(questions) {
   questions.forEach((q, idx) => {
     const box = document.createElement("div");
     box.className = "question";
+    box.id = `exam-question-${idx}`;
 
     const header = document.createElement("div");
     header.className = "question-header";
