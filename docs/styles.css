@@ -132,6 +132,10 @@ input[type="checkbox"] {
   display: none;
 }
 
+#auth-form.hidden {
+  display: none;
+}
+
 #auth-logged-in {
   display: flex;
   justify-content: flex-start;
