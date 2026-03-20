@@ -426,6 +426,13 @@ input[type="checkbox"] {
   display: grid;
   gap: 10px;
   z-index: 40;
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+}
+
+.browse-fab-group.dragging {
+  cursor: grabbing;
 }
 
 .fab-btn {

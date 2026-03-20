@@ -2,6 +2,7 @@ const STARRED_KEY = "starredQuestionIdsV1";
 const WRONG_KEY = "wrongQuestionIdsV1";
 const BANK_URL = "./pcc_2690_questions.json";
 const BROWSE_STATE_KEY = "browsePageStateV1";
+const BROWSE_FAB_POSITION_KEY = "browseFabPositionV1";
 
 const searchInput = document.getElementById("browse-search");
 const summary = document.getElementById("browse-summary");
@@ -16,6 +17,7 @@ const scrollBottomBtn = document.getElementById("scroll-bottom-btn");
 const filterAllBtn = document.getElementById("filter-all-btn");
 const filterStarredBtn = document.getElementById("filter-starred-btn");
 const filterWrongBtn = document.getElementById("filter-wrong-btn");
+const fabGroup = document.querySelector(".browse-fab-group");
 
 const state = {
   bank: [],
@@ -23,6 +25,15 @@ const state = {
   keyword: "",
   page: 1,
   pageSize: getPageSize(),
+};
+
+const fabDragState = {
+  pointerId: null,
+  startX: 0,
+  startY: 0,
+  originLeft: 0,
+  originTop: 0,
+  moved: false,
 };
 
 function loadBrowseState() {
@@ -47,6 +58,22 @@ function saveBrowseState() {
       page: state.page,
     })
   );
+}
+
+function loadFabPosition() {
+  try {
+    const raw = localStorage.getItem(BROWSE_FAB_POSITION_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (!parsed || typeof parsed !== "object") return null;
+    if (typeof parsed.left !== "number" || typeof parsed.top !== "number") return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function saveFabPosition(left, top) {
+  localStorage.setItem(BROWSE_FAB_POSITION_KEY, JSON.stringify({ left, top }));
 }
 
 function getPageSize() {
@@ -215,6 +242,84 @@ function render() {
     .join("");
 }
 
+function clampFabPosition(left, top) {
+  const fabWidth = fabGroup.offsetWidth || 52;
+  const fabHeight = fabGroup.offsetHeight || 114;
+  const maxLeft = Math.max(8, window.innerWidth - fabWidth - 8);
+  const maxTop = Math.max(8, window.innerHeight - fabHeight - 8);
+  return {
+    left: Math.max(8, Math.min(left, maxLeft)),
+    top: Math.max(8, Math.min(top, maxTop)),
+  };
+}
+
+function applyFabPosition(left, top) {
+  const next = clampFabPosition(left, top);
+  fabGroup.style.left = `${next.left}px`;
+  fabGroup.style.top = `${next.top}px`;
+  fabGroup.style.right = "auto";
+  fabGroup.style.bottom = "auto";
+}
+
+function restoreFabPosition() {
+  const saved = loadFabPosition();
+  if (!saved) return;
+  applyFabPosition(saved.left, saved.top);
+}
+
+function onFabPointerMove(event) {
+  if (fabDragState.pointerId !== event.pointerId) return;
+  const deltaX = event.clientX - fabDragState.startX;
+  const deltaY = event.clientY - fabDragState.startY;
+  if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
+    fabDragState.moved = true;
+  }
+  const nextLeft = fabDragState.originLeft + deltaX;
+  const nextTop = fabDragState.originTop + deltaY;
+  applyFabPosition(nextLeft, nextTop);
+}
+
+function onFabPointerUp(event) {
+  if (fabDragState.pointerId !== event.pointerId) return;
+  fabGroup.releasePointerCapture(event.pointerId);
+  const left = parseFloat(fabGroup.style.left || "0");
+  const top = parseFloat(fabGroup.style.top || "0");
+  saveFabPosition(left, top);
+  fabGroup.classList.remove("dragging");
+  fabDragState.pointerId = null;
+}
+
+function setupFabDrag() {
+  restoreFabPosition();
+
+  fabGroup.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    fabDragState.pointerId = event.pointerId;
+    fabDragState.startX = event.clientX;
+    fabDragState.startY = event.clientY;
+    fabDragState.originLeft = fabGroup.getBoundingClientRect().left;
+    fabDragState.originTop = fabGroup.getBoundingClientRect().top;
+    fabDragState.moved = false;
+    fabGroup.setPointerCapture(event.pointerId);
+    fabGroup.classList.add("dragging");
+  });
+
+  fabGroup.addEventListener("pointermove", onFabPointerMove);
+  fabGroup.addEventListener("pointerup", onFabPointerUp);
+  fabGroup.addEventListener("pointercancel", onFabPointerUp);
+
+  fabGroup.addEventListener(
+    "click",
+    (event) => {
+      if (fabDragState.moved) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    },
+    true
+  );
+}
+
 async function loadBank() {
   const res = await fetch(BANK_URL, { cache: "no-cache" });
   if (!res.ok) throw new Error("無法載入題庫");
@@ -296,9 +401,13 @@ window.addEventListener("resize", () => {
     state.pageSize = nextPageSize;
     render();
   }
+  if (fabGroup.style.left && fabGroup.style.top) {
+    applyFabPosition(parseFloat(fabGroup.style.left), parseFloat(fabGroup.style.top));
+  }
 });
 
 loadBrowseState();
+setupFabDrag();
 loadBank().catch((err) => {
   summary.textContent = `載入失敗：${err.message}`;
   list.innerHTML = `<section class="card"><p class="hint">題庫頁面暫時無法讀取資料。</p></section>`;
