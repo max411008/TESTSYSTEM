@@ -2,7 +2,11 @@
   --bg: #f4f8fb;
   --card: #ffffff;
   --text: #1a2a33;
-  --primary: #0b7fab;
+  --primary: #0c6d8a;
+  --primary-deep: #084d63;
+  --secondary: #d9e9f1;
+  --secondary-text: #264658;
+  --nav: #164a63;
   --danger: #b33232;
   --ok: #1f7a43;
   --muted: #5c6f78;
@@ -56,6 +60,16 @@ button:hover {
   opacity: 0.92;
 }
 
+.primary-btn {
+  background: linear-gradient(180deg, var(--primary), var(--primary-deep));
+}
+
+.secondary-btn {
+  background: var(--secondary);
+  color: var(--secondary-text);
+  border: 1px solid #c4d9e3;
+}
+
 .button-link {
   display: inline-flex;
   align-items: center;
@@ -64,9 +78,17 @@ button:hover {
   margin-top: 8px;
   padding: 10px 14px;
   border-radius: 8px;
-  background: #164a63;
+  background: var(--nav);
   color: #fff;
   text-decoration: none;
+}
+
+.button-link.nav-link {
+  background: #315f75;
+}
+
+.button-link.primary-link {
+  background: linear-gradient(180deg, var(--primary), var(--primary-deep));
 }
 
 button.danger {
@@ -228,10 +250,11 @@ input[type="checkbox"] {
   margin-bottom: 16px;
 }
 
-.browse-back {
-  color: #164a63;
-  text-decoration: none;
-  font-weight: 700;
+.browse-top-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
 }
 
 .browse-toolbar {
@@ -249,12 +272,13 @@ input[type="checkbox"] {
 }
 
 .filter-btn {
-  background: #eaf2f6;
-  color: #204052;
+  background: #eef4f7;
+  color: #2f4d5e;
+  border: 1px solid #d7e3ea;
 }
 
 .filter-btn.active {
-  background: #164a63;
+  background: var(--nav);
   color: #fff;
 }
 
@@ -508,6 +532,11 @@ input[type="checkbox"] {
 
   .browse-hero {
     padding: 6px 2px 0;
+  }
+
+  .browse-top-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
   }
 
   .browse-toolbar {
