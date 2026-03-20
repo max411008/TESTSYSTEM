@@ -24,7 +24,7 @@ const state = {
   filter: "all",
   keyword: "",
   page: 1,
-  pageSize: getPageSize(),
+  pageSize: 20,
 };
 
 const fabDragState = {
@@ -74,10 +74,6 @@ function loadFabPosition() {
 
 function saveFabPosition(left, top) {
   localStorage.setItem(BROWSE_FAB_POSITION_KEY, JSON.stringify({ left, top }));
-}
-
-function getPageSize() {
-  return window.matchMedia("(max-width: 820px)").matches ? 8 : 12;
 }
 
 function normalizeOptionKey(raw) {
@@ -396,11 +392,6 @@ scrollBottomBtn.addEventListener("click", () => {
 });
 
 window.addEventListener("resize", () => {
-  const nextPageSize = getPageSize();
-  if (nextPageSize !== state.pageSize) {
-    state.pageSize = nextPageSize;
-    render();
-  }
   if (fabGroup.style.left && fabGroup.style.top) {
     applyFabPosition(parseFloat(fabGroup.style.left), parseFloat(fabGroup.style.top));
   }
