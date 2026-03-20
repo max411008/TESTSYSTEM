@@ -204,11 +204,31 @@ input[type="checkbox"] {
   display: flex;
   gap: 8px;
   margin-top: 10px;
+  align-items: center;
 }
 
 .exam-nav button {
   flex: 1;
   margin-top: 0;
+}
+
+.exam-jump {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1.2;
+}
+
+.exam-jump input[type="number"] {
+  width: 72px;
+  min-height: 44px;
+  margin: 0;
+  padding: 8px 10px;
+}
+
+.exam-jump button {
+  width: auto;
+  flex: 0 0 auto;
 }
 
 .result-ok {
@@ -579,6 +599,8 @@ input[type="checkbox"] {
     left: 0;
     right: 0;
     bottom: 0;
+    display: grid;
+    grid-template-columns: 1fr 1.35fr 1fr 1fr;
     padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
     background: rgba(255, 255, 255, 0.98);
     border-top: 1px solid #d6e2e8;
@@ -588,6 +610,31 @@ input[type="checkbox"] {
 
   .exam-nav button {
     font-size: 15px;
+  }
+
+  .exam-jump {
+    min-width: 0;
+    gap: 4px;
+    justify-content: center;
+  }
+
+  .exam-jump input[type="number"] {
+    width: 54px;
+    min-height: 40px;
+    padding: 6px 8px;
+    font-size: 14px;
+  }
+
+  .exam-jump button {
+    min-width: 54px;
+    min-height: 40px;
+    padding: 8px 8px;
+    font-size: 13px;
+  }
+
+  .exam-jump label,
+  .exam-jump span {
+    font-size: 13px;
   }
 
   .option-preview {

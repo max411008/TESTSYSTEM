@@ -41,6 +41,8 @@ const examProgress = document.getElementById("exam-progress");
 const examForm = document.getElementById("exam-form");
 const examNav = document.getElementById("exam-nav");
 const prevQuestionBtn = document.getElementById("prev-question-btn");
+const jumpQuestionInput = document.getElementById("jump-question-input");
+const jumpQuestionBtn = document.getElementById("jump-question-btn");
 const nextQuestionBtn = document.getElementById("next-question-btn");
 const submitExamBtn = document.getElementById("submit-exam-btn");
 const resultSection = document.getElementById("result-section");
@@ -535,6 +537,18 @@ function startExamFromPool(pool, emptyMessage) {
   resultSection.classList.add("hidden");
 }
 
+function getUnansweredQuestionIndexes() {
+  return currentExamQuestions
+    .map((q, idx) => (!currentExamAnswers[q.id] ? idx : -1))
+    .filter((idx) => idx >= 0);
+}
+
+function jumpToQuestion(index) {
+  if (index < 0 || index >= currentExamQuestions.length) return;
+  currentQuestionIndex = index;
+  renderExam(currentExamQuestions);
+}
+
 function shouldShuffleOptions() {
   return Boolean(shuffleOptionsToggle && shuffleOptionsToggle.checked);
 }
@@ -646,6 +660,15 @@ startStarredWrongExamBtn.addEventListener("click", () => {
 });
 
 submitExamBtn.addEventListener("click", () => {
+  const unansweredIndexes = getUnansweredQuestionIndexes();
+  if (unansweredIndexes.length > 0) {
+    const shouldSubmit = confirm(`還有 ${unansweredIndexes.length} 題未作答，確定要交卷嗎？`);
+    if (!shouldSubmit) {
+      jumpToQuestion(unansweredIndexes[0]);
+      return;
+    }
+  }
+
   const answers = { ...currentExamAnswers };
 
   let correct = 0;
@@ -739,6 +762,18 @@ nextQuestionBtn.addEventListener("click", () => {
   if (currentQuestionIndex < currentExamQuestions.length - 1) {
     currentQuestionIndex += 1;
     renderExam(currentExamQuestions);
+  }
+});
+
+jumpQuestionBtn.addEventListener("click", () => {
+  const target = Math.max(1, Math.min(Number(jumpQuestionInput.value || 1), currentExamQuestions.length));
+  jumpToQuestion(target - 1);
+});
+
+jumpQuestionInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    jumpQuestionBtn.click();
   }
 });
 
@@ -859,14 +894,16 @@ function renderExamDesktop(questions) {
 function updateProgress() {
   const total = currentExamQuestions.length;
   const answered = Object.keys(currentExamAnswers).filter((id) => Boolean(currentExamAnswers[id])).length;
+  const unanswered = Math.max(0, total - answered);
   if (total === 0) {
     examProgress.textContent = "";
     return;
   }
+  jumpQuestionInput.value = String(currentQuestionIndex + 1);
   if (isPhoneLayout()) {
-    examProgress.textContent = `第 ${currentQuestionIndex + 1}/${total} 題，已作答 ${answered} 題`;
+    examProgress.textContent = `第 ${currentQuestionIndex + 1}/${total} 題，已作答 ${answered} 題，未作答 ${unanswered} 題`;
   } else {
-    examProgress.textContent = `共 ${total} 題，已作答 ${answered} 題`;
+    examProgress.textContent = `共 ${total} 題，已作答 ${answered} 題，未作答 ${unanswered} 題`;
   }
 }
 

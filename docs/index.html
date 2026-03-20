@@ -60,6 +60,12 @@
         <form id="exam-form"></form>
         <div id="exam-nav" class="exam-nav">
           <button id="prev-question-btn" type="button">上一題</button>
+          <div class="exam-jump">
+            <label for="jump-question-input">第</label>
+            <input id="jump-question-input" type="number" min="1" inputmode="numeric" />
+            <span>題</span>
+            <button id="jump-question-btn" class="secondary-btn" type="button">跳轉</button>
+          </div>
           <button id="next-question-btn" type="button">下一題</button>
           <button id="submit-exam-btn" type="button">交卷</button>
         </div>
