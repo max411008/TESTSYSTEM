@@ -1,0 +1,10 @@
+{
+  "name": "智慧題庫模擬考",
+  "short_name": "智慧題庫",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f8fb",
+  "theme_color": "#0c6d8a",
+  "orientation": "portrait"
+}
