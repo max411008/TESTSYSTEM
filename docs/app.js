@@ -283,7 +283,7 @@ function parseInlineOptions(questionText) {
     const end = i + 1 < matches.length ? matches[i + 1].index : text.length;
     const optionText = text
       .slice(start, end)
-      .replace(/^[\s,，、.。:：;；\-]+/, "")
+      .replace(/^[\s,，、.。:：;；]+/, "")
       .trim();
     if (!optionText) continue;
     options.push({ key, text: optionText });
