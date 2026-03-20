@@ -132,6 +132,11 @@ input[type="checkbox"] {
   display: none;
 }
 
+#auth-logged-in {
+  display: flex;
+  justify-content: flex-start;
+}
+
 .hint {
   color: var(--muted);
   margin-top: 8px;

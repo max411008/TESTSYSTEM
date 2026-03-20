@@ -17,6 +17,8 @@ const PCC2690_BANK_URL = "./pcc_2690_questions.json";
 
 const authStatus = document.getElementById("auth-status");
 const syncStatus = document.getElementById("sync-status");
+const authForm = document.getElementById("auth-form");
+const authLoggedIn = document.getElementById("auth-logged-in");
 const authUsernameInput = document.getElementById("auth-username");
 const authPasswordInput = document.getElementById("auth-password");
 const authSignupBtn = document.getElementById("auth-signup-btn");
@@ -78,6 +80,11 @@ function setSyncStatus(text) {
 
 function setAuthStatus(text) {
   authStatus.textContent = text;
+}
+
+function setAuthUi(loggedIn) {
+  authForm.classList.toggle("hidden", loggedIn);
+  authLoggedIn.classList.toggle("hidden", !loggedIn);
 }
 
 function cloudStateRef(uid) {
@@ -148,6 +155,7 @@ async function setupCloudAuth() {
   if (!hasFirebaseConfig()) {
     setAuthStatus("尚未設定 Firebase，請先填寫 firebase-config.js");
     setSyncStatus("未啟用雲端同步");
+    setAuthUi(false);
     return;
   }
 
@@ -160,10 +168,12 @@ async function setupCloudAuth() {
     if (!currentUser) {
       setAuthStatus("尚未登入");
       setSyncStatus("未同步（請登入）");
+      setAuthUi(false);
       return;
     }
 
     setAuthStatus(`已登入：${fromInternalEmail(currentUser.email) || currentUser.uid}`);
+    setAuthUi(true);
     await pullCloudState();
   });
 }
