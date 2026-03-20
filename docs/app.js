@@ -339,6 +339,26 @@ function formatDate(isoText) {
   return date.toLocaleString("zh-TW", { hour12: false });
 }
 
+function buildFallbackExplanation(item) {
+  if (item.explanation) return item.explanation;
+  if (!item.isScorable) {
+    return "這題目前沒有設定正式答案，建議回題庫原文再確認。";
+  }
+
+  const parts = [`本題正確答案是 ${item.correctAnswer}。`];
+  if (item.category) {
+    parts.push(`題目分類：${item.category}。`);
+  }
+  if (!item.yourAnswer) {
+    parts.push("你這題未作答，建議回頭補做一次。");
+  } else if (item.isCorrect) {
+    parts.push("你這題答對了，可快速帶過。");
+  } else {
+    parts.push(`你選的是 ${item.yourAnswer}，建議加入錯題或星號再複習。`);
+  }
+  return parts.join("");
+}
+
 function escapeHtml(raw) {
   return String(raw || "")
     .replace(/&/g, "&amp;")
@@ -629,6 +649,7 @@ submitExamBtn.addEventListener("click", () => {
     return {
       questionId: q.id,
       question: q.question,
+      category: q.category || "",
       yourAnswer,
       correctAnswer,
       isScorable,
@@ -854,7 +875,7 @@ function renderResult(data) {
       <p class="${stateClass}">${stateText}</p>
       <p>你的答案：${item.yourAnswer || "(未作答)"}</p>
       <p>正確答案：${item.correctAnswer || "(未設定)"}</p>
-      <p>解析：${item.explanation || "(無)"}</p>
+      <p>解析：${buildFallbackExplanation(item)}</p>
     `;
 
     resultList.appendChild(div);
