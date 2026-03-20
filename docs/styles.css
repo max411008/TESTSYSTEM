@@ -137,6 +137,10 @@ input[type="checkbox"] {
   justify-content: flex-start;
 }
 
+#auth-logged-in.hidden {
+  display: none;
+}
+
 .hint {
   color: var(--muted);
   margin-top: 8px;
