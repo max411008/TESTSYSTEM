@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>題庫瀏覽</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body class="browse-body">
+    <main class="container browse-container">
+      <section class="browse-hero">
+        <a class="browse-back" href="./index.html">返回模擬考首頁</a>
+        <h1>題庫瀏覽頁</h1>
+        <p class="hint">手機優先閱讀版，可直接查找整份 2690 題，並切換全部、星號或錯題。</p>
+      </section>
+
+      <section class="card browse-toolbar">
+        <label for="browse-search">搜尋題目</label>
+        <input id="browse-search" type="search" placeholder="輸入題號、關鍵字、分類" />
+        <div class="browse-filter-group">
+          <button id="filter-all-btn" type="button" class="filter-btn active">全部</button>
+          <button id="filter-starred-btn" type="button" class="filter-btn">星號題</button>
+          <button id="filter-wrong-btn" type="button" class="filter-btn">錯題</button>
+        </div>
+        <div id="browse-summary" class="hint">讀取中...</div>
+      </section>
+
+      <section id="browse-list" class="browse-list"></section>
+
+      <section class="card browse-pager">
+        <button id="browse-prev-btn" type="button">上一頁</button>
+        <div id="browse-page-info" class="hint"></div>
+        <button id="browse-next-btn" type="button">下一頁</button>
+      </section>
+    </main>
+
+    <script src="./browse.js" type="module"></script>
+  </body>
+</html>
