@@ -257,9 +257,19 @@ function applyFabPosition(left, top) {
   fabGroup.style.bottom = "auto";
 }
 
+function resetFabToDefaultPosition() {
+  fabGroup.style.left = "auto";
+  fabGroup.style.top = "auto";
+  fabGroup.style.right = "14px";
+  fabGroup.style.bottom = "16px";
+}
+
 function restoreFabPosition() {
   const saved = loadFabPosition();
-  if (!saved) return;
+  if (!saved) {
+    resetFabToDefaultPosition();
+    return;
+  }
   applyFabPosition(saved.left, saved.top);
 }
 
