@@ -379,6 +379,17 @@ input[type="checkbox"] {
   gap: 10px;
 }
 
+.browse-jump {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.browse-jump input[type="number"] {
+  width: 88px;
+  margin: 0;
+}
+
 .browse-pager .hint {
   margin: 0;
 }
@@ -569,5 +580,15 @@ input[type="checkbox"] {
     padding-bottom: calc(8px + env(safe-area-inset-bottom));
     background: rgba(255, 255, 255, 0.96);
     border-radius: 18px 18px 0 0;
+  }
+
+  .browse-jump {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .browse-jump input[type="number"] {
+    width: 76px;
   }
 }

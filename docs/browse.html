@@ -32,6 +32,12 @@
 
       <section class="card browse-pager">
         <button id="browse-prev-btn" type="button">上一頁</button>
+        <div class="browse-jump">
+          <label for="browse-page-input">跳到第</label>
+          <input id="browse-page-input" type="number" min="1" inputmode="numeric" />
+          <span>頁</span>
+          <button id="browse-jump-btn" type="button" class="secondary-btn">前往</button>
+        </div>
         <div id="browse-page-info" class="hint"></div>
         <button id="browse-next-btn" type="button">下一頁</button>
       </section>

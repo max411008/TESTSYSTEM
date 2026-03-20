@@ -1,11 +1,14 @@
 const STARRED_KEY = "starredQuestionIdsV1";
 const WRONG_KEY = "wrongQuestionIdsV1";
 const BANK_URL = "./pcc_2690_questions.json";
+const BROWSE_STATE_KEY = "browsePageStateV1";
 
 const searchInput = document.getElementById("browse-search");
 const summary = document.getElementById("browse-summary");
 const list = document.getElementById("browse-list");
 const pageInfo = document.getElementById("browse-page-info");
+const pageInput = document.getElementById("browse-page-input");
+const jumpBtn = document.getElementById("browse-jump-btn");
 const prevBtn = document.getElementById("browse-prev-btn");
 const nextBtn = document.getElementById("browse-next-btn");
 const filterAllBtn = document.getElementById("filter-all-btn");
@@ -19,6 +22,30 @@ const state = {
   page: 1,
   pageSize: getPageSize(),
 };
+
+function loadBrowseState() {
+  try {
+    const raw = localStorage.getItem(BROWSE_STATE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (!parsed || typeof parsed !== "object") return;
+    state.filter = parsed.filter || "all";
+    state.keyword = parsed.keyword || "";
+    state.page = Math.max(1, Number(parsed.page) || 1);
+  } catch {
+    // Ignore invalid local state and keep defaults.
+  }
+}
+
+function saveBrowseState() {
+  localStorage.setItem(
+    BROWSE_STATE_KEY,
+    JSON.stringify({
+      filter: state.filter,
+      keyword: state.keyword,
+      page: state.page,
+    })
+  );
+}
 
 function getPageSize() {
   return window.matchMedia("(max-width: 820px)").matches ? 8 : 12;
@@ -148,9 +175,11 @@ function render() {
 
   summary.textContent = `共 ${filtered.length} 題，目前第 ${state.page} / ${totalPages} 頁`;
   pageInfo.textContent = `${state.page} / ${totalPages}`;
+  pageInput.value = String(state.page);
   prevBtn.disabled = state.page === 1;
   nextBtn.disabled = state.page === totalPages;
   setActiveFilterButton();
+  saveBrowseState();
 
   if (pageItems.length === 0) {
     list.innerHTML = `<section class="card"><p class="hint">找不到符合條件的題目。</p></section>`;
@@ -189,6 +218,7 @@ async function loadBank() {
   if (!res.ok) throw new Error("無法載入題庫");
   const data = await res.json();
   state.bank = Array.isArray(data) ? data.map((item, idx) => normalizeQuestion(item, idx)) : [];
+  searchInput.value = state.keyword;
   render();
 }
 
@@ -233,15 +263,32 @@ nextBtn.addEventListener("click", () => {
   }
 });
 
+function jumpToPage() {
+  const totalPages = Math.max(1, Math.ceil(getFilteredQuestions().length / state.pageSize));
+  const target = Math.max(1, Math.min(Number(pageInput.value || 1), totalPages));
+  state.page = target;
+  render();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+jumpBtn.addEventListener("click", jumpToPage);
+
+pageInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    jumpToPage();
+  }
+});
+
 window.addEventListener("resize", () => {
   const nextPageSize = getPageSize();
   if (nextPageSize !== state.pageSize) {
     state.pageSize = nextPageSize;
-    state.page = 1;
     render();
   }
 });
 
+loadBrowseState();
 loadBank().catch((err) => {
   summary.textContent = `載入失敗：${err.message}`;
   list.innerHTML = `<section class="card"><p class="hint">題庫頁面暫時無法讀取資料。</p></section>`;
