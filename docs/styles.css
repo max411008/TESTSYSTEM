@@ -289,6 +289,7 @@ input[type="checkbox"] {
 
 .browse-hero {
   margin-bottom: 16px;
+  padding-top: calc(env(safe-area-inset-top) + 8px);
 }
 
 .browse-top-actions {
@@ -651,12 +652,14 @@ input[type="checkbox"] {
   }
 
   .browse-hero {
-    padding: 6px 2px 0;
+    padding: calc(env(safe-area-inset-top) + 14px) 2px 0;
   }
 
   .browse-top-actions {
     display: grid;
     grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 14px;
   }
 
   .browse-toolbar {
