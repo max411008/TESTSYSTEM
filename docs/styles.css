@@ -6,6 +6,8 @@
   --danger: #b33232;
   --ok: #1f7a43;
   --muted: #5c6f78;
+  --card-border: #dfe9ee;
+  --soft-blue: #eef7fb;
 }
 
 * {
@@ -17,6 +19,7 @@ body {
   font-family: "Noto Sans TC", "PingFang TC", sans-serif;
   background: linear-gradient(135deg, #eef7ff, #f7fbf7);
   color: var(--text);
+  line-height: 1.6;
 }
 
 .container {
@@ -34,6 +37,7 @@ h1 {
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 16px;
+  border: 1px solid var(--card-border);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
 }
 
@@ -95,14 +99,17 @@ input[type="checkbox"] {
   border-radius: 10px;
   padding: 14px;
   margin-bottom: 12px;
+  background: linear-gradient(180deg, #ffffff, #fbfdfe);
 }
 
 .option-label {
   display: block;
   margin-top: 10px;
-  padding: 10px;
+  padding: 12px;
   border: 1px solid #dbe5ea;
   border-radius: 10px;
+  background: #ffffff;
+  line-height: 1.65;
 }
 
 .option-label input[type="radio"] {
@@ -130,6 +137,11 @@ input[type="checkbox"] {
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 8px;
+}
+
+.question-header p {
+  margin: 0;
+  flex: 1;
 }
 
 .exam-nav {
@@ -190,22 +202,114 @@ input[type="checkbox"] {
 }
 
 @media (max-width: 820px) {
+  body {
+    background:
+      radial-gradient(circle at top left, rgba(11, 127, 171, 0.08), transparent 30%),
+      linear-gradient(180deg, #f4f8fb, #eef5f7 42%, #f8fafb);
+  }
+
   .container {
-    padding: 14px 12px calc(110px + env(safe-area-inset-bottom));
+    max-width: 100%;
+    padding: 10px 10px calc(118px + env(safe-area-inset-bottom));
   }
 
   h1 {
-    font-size: 22px;
-    margin-bottom: 14px;
+    font-size: 24px;
+    line-height: 1.25;
+    margin: 8px 4px 14px;
   }
 
   .card {
-    border-radius: 14px;
+    border-radius: 18px;
     padding: 14px;
+    margin-bottom: 12px;
+    box-shadow: 0 10px 24px rgba(26, 42, 51, 0.08);
   }
 
   #exam-section {
     padding-bottom: calc(84px + env(safe-area-inset-bottom));
+  }
+
+  .card h2 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 18px;
+  }
+
+  .hint {
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  button {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  button.danger {
+    margin-left: 0;
+  }
+
+  #auth-form,
+  #result-list,
+  #starred-list,
+  #wrong-list,
+  #history-list {
+    display: grid;
+    gap: 10px;
+  }
+
+  #score {
+    position: sticky;
+    top: 8px;
+    z-index: 5;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: var(--soft-blue);
+    border: 1px solid #d4e6ee;
+    margin-bottom: 12px;
+    font-weight: 700;
+  }
+
+  .question {
+    border-radius: 14px;
+    padding: 14px 12px;
+  }
+
+  .question p {
+    margin: 0 0 8px;
+    font-size: 15px;
+    line-height: 1.7;
+    word-break: break-word;
+  }
+
+  .question-header {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .question-header p {
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.7;
+  }
+
+  .star-toggle {
+    width: auto;
+    min-width: 90px;
+    padding: 10px 12px;
+    flex-shrink: 0;
+  }
+
+  .option-label {
+    padding: 13px 12px;
+    border-radius: 14px;
+    margin-top: 8px;
+    font-size: 16px;
+    box-shadow: 0 2px 0 rgba(26, 42, 51, 0.03);
   }
 
   .exam-nav {
@@ -218,5 +322,22 @@ input[type="checkbox"] {
     border-top: 1px solid #d6e2e8;
     backdrop-filter: blur(8px);
     z-index: 50;
+  }
+
+  .exam-nav button {
+    font-size: 15px;
+  }
+
+  .option-preview {
+    padding-left: 20px;
+  }
+
+  .option-preview li {
+    line-height: 1.7;
+  }
+
+  .wrong-mark {
+    right: 10px;
+    top: 8px;
   }
 }
