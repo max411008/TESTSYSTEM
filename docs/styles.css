@@ -16,6 +16,7 @@
 
 * {
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -24,6 +25,8 @@ body {
   background: linear-gradient(135deg, #eef7ff, #f7fbf7);
   color: var(--text);
   line-height: 1.6;
+  -webkit-text-size-adjust: 100%;
+  touch-action: manipulation;
 }
 
 .container {
@@ -99,6 +102,10 @@ button.danger {
 input[type="number"],
 input[type="file"],
 input[type="url"],
+input[type="search"],
+input[type="text"],
+input[type="email"],
+input[type="password"],
 select {
   width: 100%;
   margin-top: 8px;
@@ -106,6 +113,7 @@ select {
   padding: 10px;
   border: 1px solid #ccd7de;
   border-radius: 8px;
+  font-size: 16px;
 }
 
 label[for="shuffle-options-toggle"] {
