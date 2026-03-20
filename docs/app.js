@@ -85,6 +85,8 @@ function setAuthStatus(text) {
 function setAuthUi(loggedIn) {
   authForm.classList.toggle("hidden", loggedIn);
   authLoggedIn.classList.toggle("hidden", !loggedIn);
+  authStatus.classList.toggle("hidden", loggedIn);
+  syncStatus.classList.toggle("hidden", loggedIn);
 }
 
 function cloudStateRef(uid) {
