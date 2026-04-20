@@ -268,6 +268,64 @@ input[type="checkbox"] {
   font-weight: 700;
 }
 
+.result-options {
+  list-style: none;
+  margin: 10px 0 12px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.result-option {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #dde8ed;
+  background: #ffffff;
+}
+
+.result-option-correct {
+  border-color: #b8d8c3;
+  background: #f2fbf5;
+}
+
+.result-option-picked {
+  box-shadow: inset 0 0 0 1px rgba(12, 109, 138, 0.22);
+}
+
+.result-option-key {
+  font-weight: 700;
+}
+
+.result-option-text {
+  min-width: 0;
+}
+
+.result-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.result-badge-correct {
+  background: #dff4e6;
+  color: #136236;
+}
+
+.result-badge-picked {
+  background: #dceff6;
+  color: #0d546b;
+}
+
 .wrong-mark {
   position: absolute;
   right: 12px;
@@ -644,6 +702,15 @@ input[type="checkbox"] {
 
   .option-preview li {
     line-height: 1.7;
+  }
+
+  .result-option {
+    grid-template-columns: auto 1fr;
+  }
+
+  .result-badge {
+    grid-column: 2;
+    justify-self: start;
   }
 
   .wrong-mark {

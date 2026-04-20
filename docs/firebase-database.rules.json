@@ -1,0 +1,17 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        "study": {
+          "state": {
+            ".validate": "newData.hasChildren(['username', 'history', 'starredIds', 'wrongIds', 'updatedAt']) && newData.child('username').isString() && newData.child('history').isList() && newData.child('starredIds').isList() && newData.child('wrongIds').isList() && newData.child('updatedAt').isString()"
+          }
+        }
+      }
+    }
+  }
+}

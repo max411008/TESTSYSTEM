@@ -401,6 +401,44 @@ function buildOptionPreviewHtml(q) {
   return `<ul class="option-preview">${optionLines}</ul>`;
 }
 
+function buildResultOptionsHtml(item) {
+  const options = Array.isArray(item.options) ? item.options : [];
+  if (options.length === 0) {
+    return `<p class="hint">此題沒有選項資料</p>`;
+  }
+
+  const yourAnswer = normalizeOptionKey(item.yourAnswer || "");
+  const correctAnswer = normalizeOptionKey(item.correctAnswer || "");
+  const optionLines = options
+    .map((opt) => {
+      const key = normalizeOptionKey(opt.key || "");
+      const text = escapeHtml(opt.text || "");
+      const classes = ["result-option"];
+      const badges = [];
+
+      if (key && key === correctAnswer) {
+        classes.push("result-option-correct");
+        badges.push('<span class="result-badge result-badge-correct">正解</span>');
+      }
+
+      if (key && key === yourAnswer) {
+        classes.push("result-option-picked");
+        badges.push('<span class="result-badge result-badge-picked">你選的</span>');
+      }
+
+      return `
+        <li class="${classes.join(" ")}">
+          <span class="result-option-key">${escapeHtml(key)}.</span>
+          <span class="result-option-text">${text}</span>
+          ${badges.join("")}
+        </li>
+      `;
+    })
+    .join("");
+
+  return `<ul class="result-options">${optionLines}</ul>`;
+}
+
 function renderHistory() {
   const history = loadHistory();
   if (history.length === 0) {
@@ -702,6 +740,12 @@ submitExamBtn.addEventListener("click", () => {
     return {
       questionId: q.id,
       question: q.question,
+      options: Array.isArray(q.options)
+        ? q.options.map((opt) => ({
+            key: normalizeOptionKey(opt.key || ""),
+            text: String(opt.text || ""),
+          }))
+        : [],
       category: q.category || "",
       yourAnswer,
       correctAnswer,
@@ -951,6 +995,7 @@ function renderResult(data) {
       <p class="${stateClass}">${stateText}</p>
       <p>你的答案：${item.yourAnswer || "(未作答)"}</p>
       <p>正確答案：${item.correctAnswer || "(未設定)"}</p>
+      ${buildResultOptionsHtml(item)}
       <p>解析：${buildFallbackExplanation(item)}</p>
     `;
 

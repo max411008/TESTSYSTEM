@@ -69,3 +69,26 @@ D) 6
 - 使用方式：
   - 直接開網址即可使用，不需要輸入後端網址。
   - 題庫資料存在使用者自己的瀏覽器（localStorage）。
+
+## 7. Firebase Realtime Database 規則
+
+如果 Firebase 主控台出現「測試模式即將到期」警告，表示 Realtime Database 目前仍是 30 天的公開測試規則；到期後，用戶端請求會被全部拒絕。
+
+這個專案的前端只會讀寫：
+
+- `users/{uid}/study/state`
+
+而且要求使用者先經過 Firebase Authentication 登入，所以資料庫規則應改成「只允許登入使用者讀寫自己的節點」，不要保留公開 `.read/.write = true`。
+
+可直接使用專案內的規則檔：
+
+- [`docs/firebase-database.rules.json`](/Users/maxlin/刷題程式/docs/firebase-database.rules.json)
+
+套用方式：
+
+1. 打開 Firebase Console。
+2. 進入 `Realtime Database`。
+3. 切到 `規則 Rules` 分頁。
+4. 用 `docs/firebase-database.rules.json` 的內容覆蓋目前規則並發布。
+
+套用後，只有已登入的使用者能讀寫 `users/{自己的 uid}/study/state`，其他路徑一律拒絕。
